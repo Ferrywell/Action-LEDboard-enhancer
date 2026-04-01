@@ -40,11 +40,14 @@ enum BKLightError: LocalizedError {
     }
 }
 
-/// BK-Light BLE Central: scan `LED_BLE_*`, GATT fa02/fa03, writes with notification ACKs (see display_session.py).
+/// BK-Light BLE Central: scan via CoreBluetooth (same class of API as iPixel — not the same as Instellingen → Bluetooth).
+/// Matches panels by advertised name and/or advertised service UUIDs (FA02/FA03); GATT fa02/fa03 after connect.
 @MainActor
 final class BKLightBleClient: NSObject, ObservableObject {
     @Published private(set) var isScanning = false
     @Published private(set) var discoveredPeripherals: [CBPeripheral] = []
+    /// Local name from `CBAdvertisementDataLocalNameKey` (often arrives before `peripheral.name` is set).
+    @Published private(set) var advertisementLocalNames: [UUID: String] = [:]
     @Published private(set) var connectedPeripheral: CBPeripheral?
     @Published private(set) var connectionState: ConnectionState = .idle
     @Published private(set) var isPanelReady = false
@@ -103,10 +106,20 @@ final class BKLightBleClient: NSObject, ObservableObject {
         }
         lastError = nil
         discoveredPeripherals.removeAll()
+        advertisementLocalNames.removeAll()
         isScanning = true
         connectionState = .scanning
-        // true: iOS often omits the local name in the first advertisement; without duplicates the panel is never listed.
+        // `nil`: discover by name and/or by advertised UUIDs (vendor apps do not rely on Instellingen → Bluetooth).
+        // AllowDuplicates: first adv packet often has no local name; later packets fill it in.
         central.scanForPeripherals(withServices: nil, options: [CBCentralManagerScanOptionAllowDuplicatesKey: true])
+    }
+
+    /// Label for list rows (`peripheral.name` is often nil until connected).
+    func displayLabel(for peripheral: CBPeripheral) -> String {
+        if let n = peripheral.name, !n.isEmpty { return n }
+        if let cached = advertisementLocalNames[peripheral.identifier] { return cached }
+        let short = peripheral.identifier.uuidString.prefix(8)
+        return "BK-Light paneel (\(short)…)"
     }
 
     func stopScan() {
@@ -197,6 +210,33 @@ final class BKLightBleClient: NSObject, ObservableObject {
     }
 
     // MARK: - Internals
+
+    /// On iPhone the firmware often advertises a friendly name (e.g. `Pixel board – ACT1026`); PC tools may still show `LED_BLE_*`.
+    private static func isLikelyBKLightPanel(name: String) -> Bool {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        let lower = trimmed.lowercased()
+        if lower.hasPrefix("led_ble_") { return true }
+        if lower.contains("pixel board") { return true }
+        if lower.contains("act1026") { return true }
+        return false
+    }
+
+    /// Vendor apps (e.g. iPixel) match devices that advertise GATT service/characteristic UUIDs in the BLE advertisement.
+    private static func advertisedBKLightServiceUUIDs(from advertisementData: [String: Any]) -> [CBUUID] {
+        var out: [CBUUID] = []
+        if let a = advertisementData[CBAdvertisementDataServiceUUIDsKey] as? [CBUUID] { out.append(contentsOf: a) }
+        if let b = advertisementData[CBAdvertisementDataOverflowServiceUUIDsKey] as? [CBUUID] { out.append(contentsOf: b) }
+        return out
+    }
+
+    private static func advertisementMatchesBKLightServices(_ uuids: [CBUUID]) -> Bool {
+        for u in uuids {
+            let s = u.uuidString.uppercased()
+            if s.contains("FA02") || s.contains("FA03") { return true }
+        }
+        return false
+    }
 
     private func ensureReady() async throws {
         guard connectedPeripheral != nil else {
@@ -380,8 +420,13 @@ extension BKLightBleClient: CBCentralManagerDelegate {
         // Prefer advertisement local name (often set before peripheral.name on iOS).
         let advName = advertisementData[CBAdvertisementDataLocalNameKey] as? String
         let name = [advName, peripheral.name].compactMap { $0 }.first { !$0.isEmpty } ?? ""
-        guard name.hasPrefix("LED_BLE_") else { return }
+        let advServices = Self.advertisedBKLightServiceUUIDs(from: advertisementData)
+        let matches = Self.isLikelyBKLightPanel(name: name) || Self.advertisementMatchesBKLightServices(advServices)
+        guard matches else { return }
         Task { @MainActor in
+            if let advName, !advName.isEmpty {
+                self.advertisementLocalNames[peripheral.identifier] = advName
+            }
             if let idx = self.discoveredPeripherals.firstIndex(where: { $0.identifier == peripheral.identifier }) {
                 self.discoveredPeripherals[idx] = peripheral
             } else {
