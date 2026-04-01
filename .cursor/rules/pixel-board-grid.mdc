@@ -21,6 +21,7 @@ Before shipping graphics, BLE payloads, or UI that generates panel content:
 ## Defaults (iOS app)
 
 - **Foreground / “on” pixels for generated text:** **white** (`PanelBitmapRenderer.defaultTextForeground`), **background** black unless overridden.
+- **Hardware brightness command:** use **1…100** percent only — **0** is not sent (many firmwares treat 0 oddly).
 
 ## When changing protocol or dimensions
 

@@ -12,8 +12,9 @@ struct ContentView: View {
     @State private var statusMessage: String?
     @State private var showError: String?
     @State private var showBleTip = false
-    /// 0…100 — hardware brightness (`BKLightBleClient.setBrightness`); debounced when sliding.
+    /// 1…100 — hardware brightness (`setBrightness`); 0% is not used (firmware quirk).
     @State private var panelBrightness = 70.0
+    @State private var useDemoFlights = true
     @State private var brightnessSendTask: Task<Void, Never>?
 
     enum PanelMode: String, CaseIterable, Identifiable {
@@ -211,7 +212,7 @@ struct ContentView: View {
             HStack {
                 Image(systemName: "sun.min")
                     .foregroundStyle(.secondary)
-                Slider(value: $panelBrightness, in: 0...100, step: 1)
+                Slider(value: $panelBrightness, in: 1...100, step: 1)
                     .tint(.white)
                 Image(systemName: "sun.max.fill")
                     .foregroundStyle(.secondary)
@@ -230,15 +231,16 @@ struct ContentView: View {
                 .fill(Color(uiColor: .secondarySystemGroupedBackground))
         )
         .opacity(ble.isPanelReady ? 1 : 0.45)
-        .disabled(!ble.isPanelReady)
+        .disabled(!ble.isPanelReady || isSending)
         .onChange(of: panelBrightness) { _, new in
+            guard !isSending else { return }
             scheduleBrightnessSend(new)
         }
     }
 
     private func scheduleBrightnessSend(_ value: Double) {
         brightnessSendTask?.cancel()
-        let target = UInt8(clamping: Int(value.rounded()))
+        let target = UInt8(max(1, min(100, Int(value.rounded()))))
         brightnessSendTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 280_000_000)
             guard !Task.isCancelled else { return }
@@ -363,6 +365,8 @@ struct ContentView: View {
                     Text("Vluchten in de regio via OpenSky (indicatief, geen API-key).")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
+                    Toggle("Demo vluchten (testdata)", isOn: $useDemoFlights)
+                        .font(.subheadline)
                 }
             }
         }
@@ -450,20 +454,31 @@ struct ContentView: View {
             showError = BKLightError.characteristicMissing.localizedDescription
             return
         }
+        if mode == .message {
+            let t = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !t.isEmpty else {
+                showError = "Voer tekst in."
+                return
+            }
+        }
+        brightnessSendTask?.cancel()
+        brightnessSendTask = nil
         isSending = true
         statusMessage = nil
         defer { isSending = false }
         do {
+            try await Task.sleep(nanoseconds: 120_000_000)
             let png: Data?
             switch mode {
             case .calendar:
                 let lines = calendar.todaySummaryLines()
                 png = PanelBitmapRenderer.renderLines(lines)
             case .message:
-                let lines = [messageText].flatMap { chunkLine($0) }
+                let trimmed = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
+                let lines = [trimmed].flatMap { chunkLine($0) }
                 png = PanelBitmapRenderer.renderLines(lines)
             case .flights:
-                let lines = try await FlightBoardProvider.summaryLines()
+                let lines = try await FlightBoardProvider.summaryLines(useDemo: useDemoFlights)
                 png = PanelBitmapRenderer.renderLines(lines)
             }
             guard let data = png else {

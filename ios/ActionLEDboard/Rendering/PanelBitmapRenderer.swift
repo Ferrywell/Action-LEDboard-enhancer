@@ -41,23 +41,24 @@ enum PanelBitmapRenderer {
             cg.fill(CGRect(origin: .zero, size: panelSize))
 
             let trimmed = lines.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
-            guard !trimmed.isEmpty else { return }
+            let sanitized = trimmed.map { Self.sanitizeForDotMatrix($0) }
+            guard !sanitized.isEmpty else { return }
 
             foreground.setFill()
-            let scale = pickScale(for: trimmed)
+            let scale = pickScale(for: sanitized)
             let lineGap = max(1, scale)
             var totalHeight = 0
-            for (i, line) in trimmed.enumerated() {
+            for (i, line) in sanitized.enumerated() {
                 totalHeight += DotMatrixFont.charHeight * scale
                 if i > 0 { totalHeight += lineGap }
             }
             var y = (Int(panelSize.height) - totalHeight) / 2
-            for (idx, line) in trimmed.enumerated() {
+            for (idx, line) in sanitized.enumerated() {
                 let lineWidth = DotMatrixFont.textWidth(line) * scale
                 let x = (Int(panelSize.width) - lineWidth) / 2
                 drawDotMatrixLine(line, in: cg, x: x, y: y, scale: scale)
                 y += DotMatrixFont.charHeight * scale
-                if idx < trimmed.count - 1 { y += lineGap }
+                if idx < sanitized.count - 1 { y += lineGap }
             }
         }
         return img.pngData()
@@ -84,9 +85,14 @@ enum PanelBitmapRenderer {
         return 1
     }
 
+    /// Dot-matrix glyphs are ASCII-only; replace others so width/layout matches drawing.
+    private static func sanitizeForDotMatrix(_ line: String) -> String {
+        String(line.uppercased().map { $0.isASCII ? $0 : Character("?") })
+    }
+
     private static func drawDotMatrixLine(_ text: String, in cg: CGContext, x: Int, y: Int, scale: Int) {
         var cx = x
-        for ch in text.uppercased() {
+        for ch in text {
             let rows = DotMatrixFont.rows(for: ch)
             for (rowIdx, row) in rows.enumerated() {
                 for (colIdx, dot) in row.enumerated() {

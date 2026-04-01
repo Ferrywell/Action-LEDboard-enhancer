@@ -2,6 +2,13 @@ import Combine
 import CoreBluetooth
 import Foundation
 
+/// Serializes GATT write + notify ACK flows — `pendingWriteContinuation` must not overlap between operations.
+private actor BKLightTransferSerial {
+    func run<T: Sendable>(_ operation: @Sendable () async throws -> T) async rethrows -> T {
+        try await operation()
+    }
+}
+
 /// Shared timing; keep in sync with user-facing `BKLightError.gattDiscoveryTimeout` text.
 private enum BKLightTiming {
     static let gattReadyTimeoutSeconds: TimeInterval = 18
@@ -80,6 +87,7 @@ final class BKLightBleClient: NSObject, ObservableObject {
     private var gattReadyWatchTask: Task<Void, Never>?
 
     private let queue = DispatchQueue(label: "bklight.ble", qos: .userInitiated)
+    private let transferSerial = BKLightTransferSerial()
 
     override init() {
         super.init()
@@ -164,6 +172,26 @@ final class BKLightBleClient: NSObject, ObservableObject {
     // MARK: - High-level send (32×32 PNG pipeline; 16×32 needs hardware agreement)
 
     func sendPNG(_ pngData: Data, rotationDegrees: Int = 0, brightness: CGFloat = 1.0, stopAnimationFirst: Bool = true) async throws {
+        try await transferSerial.run { [self] in
+            try await self.sendPNGUnserialized(pngData, rotationDegrees: rotationDegrees, brightness: brightness, stopAnimationFirst: stopAnimationFirst)
+        }
+    }
+
+    /// Firmware often treats 0% as “minimum on” or ignores it — use **1…100** only.
+    func setBrightness(_ value: UInt8) async throws {
+        let clamped = max(1, min(100, value))
+        try await transferSerial.run { [self] in
+            try await self.setBrightnessUnserialized(clamped)
+        }
+    }
+
+    func setDisplayMode(_ mode: UInt8) async throws {
+        try await transferSerial.run { [self] in
+            try await self.setDisplayModeUnserialized(mode)
+        }
+    }
+
+    private func sendPNGUnserialized(_ pngData: Data, rotationDegrees: Int, brightness: CGFloat, stopAnimationFirst: Bool) async throws {
         try await ensureReady()
         if stopAnimationFirst {
             _ = try await sendCommandAndWaitAck(BKLightProtocol.displayModeCommand(mode: 1), timeout: 2.0)
@@ -174,12 +202,12 @@ final class BKLightBleClient: NSObject, ObservableObject {
         try await sendFramePacket(frame)
     }
 
-    func setBrightness(_ value: UInt8) async throws {
+    private func setBrightnessUnserialized(_ value: UInt8) async throws {
         try await ensureReady()
         _ = try await sendCommandAndWaitAck(BKLightProtocol.brightnessCommand(value: value), timeout: 2.0)
     }
 
-    func setDisplayMode(_ mode: UInt8) async throws {
+    private func setDisplayModeUnserialized(_ mode: UInt8) async throws {
         try await ensureReady()
         _ = try await sendCommandAndWaitAck(BKLightProtocol.displayModeCommand(mode: mode), timeout: 2.0)
     }

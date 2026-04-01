@@ -41,7 +41,15 @@ enum FlightBoardProvider {
         return states?.count ?? 0
     }
 
-    static func summaryLines(config: Config = Config()) async throws -> [String] {
+    /// Short demo lines for 32×32 dot matrix (test without network).
+    static func demoSummaryLines() -> [String] {
+        ["KL", "605", "AMS", "12"] // 4 tokens; fits at scale 1
+    }
+
+    static func summaryLines(useDemo: Bool = false, config: Config = Config()) async throws -> [String] {
+        if useDemo {
+            return demoSummaryLines()
+        }
         let n = try await fetchAircraftCount(config: config)
         return ["OpenSky", "regio", "\(n)", "vliegtuig"]
     }
