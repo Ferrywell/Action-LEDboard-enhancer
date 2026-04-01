@@ -1,0 +1,27 @@
+---
+description: 32×32 LED pixel grid — size, readability, and fit for all output
+alwaysApply: true
+---
+
+# Pixel board grid (BK-Light / Action LED)
+
+## Hard facts
+
+- **Default target hardware** is a **32×32 RGB LED matrix** (one product SKU; 16×32 is separate and protocol-unverified — do not assume the same bytes).
+- **One logical bitmap pixel in PNG/GIF payload should correspond to one LED** where the protocol sends raw image data. Text and UI must be designed for **discrete LEDs**, not print or subpixel typography.
+
+## Readability and fit (always check)
+
+Before shipping graphics, BLE payloads, or UI that generates panel content:
+
+1. **Does it fit?** Max **32×32** for this panel; multi-line text must fit after dot-matrix scaling (typically scale 1–4 in our iOS renderer). Long strings must be **truncated**, **split**, or shown as **scroll/GIF** — never assume infinite width.
+2. **Is it readable?** Prefer **high contrast** (default app text pixels: **white on black**). Avoid thin anti-aliased UI fonts for final panel bitmaps; use **aligned dot-matrix or crisp fills** so each LED is intentionally on/off.
+3. **If it does not fit:** Prefer **smaller scale**, **fewer characters per line**, **fewer lines**, **shorter tokens**, or **animation/GIF** — and state the tradeoff in code comments or user-facing copy when relevant.
+
+## Defaults (iOS app)
+
+- **Foreground / “on” pixels for generated text:** **white** (`PanelBitmapRenderer.defaultTextForeground`), **background** black unless overridden.
+
+## When changing protocol or dimensions
+
+- Any handshake or frame size tied to **32×32** (`32 00` in vendor bytes) must stay consistent with **`BKLightProtocol` / `display_session.py`** — do not guess **16×32** parameters.

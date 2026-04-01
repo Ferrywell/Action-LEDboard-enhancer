@@ -5,8 +5,8 @@ import UIKit
 enum PanelBitmapRenderer {
     static let panelSize = CGSize(width: 32, height: 32)
 
-    /// Default line/text color on the panel: amber `#ff9900` (see `docs/reference/DISPLAY-DESIGN.md`).
-    static let defaultTextForeground = UIColor(red: 1, green: 153 / 255, blue: 0, alpha: 1)
+    /// Default line/text color on the panel: **white** on black (high contrast on discrete LEDs).
+    static let defaultTextForeground = UIColor.white
 
     static func adjustPNG(_ data: Data, rotationDegrees: Int, brightness: CGFloat) -> Data {
         guard let ui = UIImage(data: data) else { return data }

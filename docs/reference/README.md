@@ -34,6 +34,4 @@ Wijzigingen in die clone: alleen maken als je bewust forked; voor dit project li
 
 ## Coördinatie (agents)
 
-- **Opdrachten (per agent):** [management/assignments/](../../management/assignments/README.md)
-- **Statusoverzicht:** [management/STATUS.md](../../management/STATUS.md)
-- **Werkwijze lead ↔ agents:** [management/LEAD-CYCLE.md](../../management/LEAD-CYCLE.md)
+- De map **`management/`** wordt **niet** meegecommit (lokaal / `.gitignore`). Op een verse clone bestaat die niet; opdrachten lopen via **chat**, **PR’s** en **`docs/reference/`**. Wil je zelf een planning-map: maak lokaal `management/` aan (bijv. gekopieerd van een oude checkout).

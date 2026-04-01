@@ -212,7 +212,7 @@ struct ContentView: View {
                 Image(systemName: "sun.min")
                     .foregroundStyle(.secondary)
                 Slider(value: $panelBrightness, in: 0...100, step: 1)
-                    .tint(.orange)
+                    .tint(.white)
                 Image(systemName: "sun.max.fill")
                     .foregroundStyle(.secondary)
             }

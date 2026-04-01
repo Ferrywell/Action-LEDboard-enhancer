@@ -1,14 +1,15 @@
 ---
-description: Agent workflow — assignments file + STATUS for Action-LEDboard-enhancer
+description: Agent workflow — repo sources of truth (management/ is local-only)
 globs:
 alwaysApply: true
 ---
 
 # Agent workflow
 
-1. **Start:** Read your assignment in `management/assignments/` — Agent 1: `agent-1-ios.md`, Agent 2: `agent-2-ble-protocol.md`, Agent 3: `agent-3-micro-display-ux.md`, Agent 4: `agent-4-qa-release.md`. Execute only **« Huidige opdracht (lead) »** in that file.
-2. **End:** Fill **« Rapport (agent) »** in the same file. Update `management/STATUS.md` in your section (dated bullet, files touched, blockers).
-3. If blocked, add **Blockers / beslissing lead** in `STATUS.md` with file paths.
-4. Optional long write-up: `management/log/YYYY-MM-DD-<topic>.md` and one line in `STATUS.md`.
+The **`management/`** folder is **not in Git** (local planning only). Do not expect `management/assignments/` or `STATUS.md` on clone.
 
-Do not rely on chat-only summaries. Reference docs: `docs/reference/`. iOS: `ios/`. BLE tools: `tools/ble/`.
+1. **Start:** Take tasks from the **user/lead chat** and from **`docs/reference/`**, **`ios/`**, **`tools/ble/`**. If you have a local `management/` copy, you may use it as a personal checklist — it is optional.
+2. **End:** Summarize in the chat and, if requested, a short note in **`docs/`** or the PR description — not in `management/` (untracked).
+3. **Pixel output:** Follow **pixel-board-grid** rule: every change that affects what appears on the 32×32 panel must consider **fit and readability**.
+
+Reference docs: `docs/reference/`. iOS: `ios/`. BLE tools: `tools/ble/`.

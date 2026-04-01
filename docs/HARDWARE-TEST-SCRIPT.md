@@ -52,7 +52,7 @@ Doel: **vergelijking** Python-tool ↔ iOS op **hetzelfde** fysieke paneel (niet
 ## Na afloop
 
 - Noteer kort: **gelukt / niet**, **welk device** (iPhone-model, iOS), **eventuele fouttekst** in de app.
-- Resultaat mag in **`management/STATUS.md`** (kort) of bij de lead — geen uitgebreid rapport nodig tenzij er blokkers zijn.
+- Resultaat kort delen met de lead (chat of PR) — geen uitgebreid rapport nodig tenzij er blokkers zijn.
 
 ---
 

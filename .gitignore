@@ -27,5 +27,8 @@ build/
 # Cursor (optional local)
 .cursor/*.log
 
+# Local planning / agent briefs (not shared via repo)
+management/
+
 # Large local caches
 *.xcarchive
