@@ -12,7 +12,8 @@ enum PanelBitmapRenderer {
         guard let ui = UIImage(data: data) else { return data }
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1
-        format.opaque = false
+        // Opaque RGB avoids RGBA PNG output that some panel firmware mishandles (blank image).
+        format.opaque = true
         let renderer = UIGraphicsImageRenderer(size: panelSize, format: format)
         let out = renderer.image { ctx in
             UIColor.black.setFill()
