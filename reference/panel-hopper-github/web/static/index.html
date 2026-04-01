@@ -1,0 +1,3123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Panel Hopper</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <link rel="apple-touch-icon" href="/static/favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Press+Start+2P&family=VT323&family=Silkscreen:wght@400;700&family=DotGothic16&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --surface: #12121a;
+            --surface-2: #1a1a25;
+            --surface-3: #222230;
+            --border: #252535;
+            --text: #e8e8f0;
+            --text-dim: #8888bb;
+            --accent: #ff9900;
+            --accent-dim: #cc7a00;
+            --accent-glow: rgba(255, 153, 0, 0.15);
+            --success: #4ade80;
+            --error: #f87171;
+            --panel-bg: #08080c;
+            --font-base: 0.875rem;
+            --font-sm: 0.8rem;
+            --font-xs: 0.7rem;
+        }
+        
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: var(--font-base);
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.5;
+            display: flex;
+            flex-direction: column;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+        
+        /* Header */
+        header {
+            background: linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%);
+            border-bottom: 1px solid var(--border);
+            padding: 0.75rem 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        
+        .logo {
+            font-size: 1.3rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent), #ffcc66);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        
+        .logo:hover { opacity: 0.8; }
+        
+        /* Main Layout */
+        main {
+            display: grid;
+            grid-template-columns: 260px 1fr 260px;
+            flex: 1;
+            min-height: 0;
+        }
+        
+        aside {
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            padding: 1rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .sidebar-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .btn-scan-subtle {
+            margin-top: 1rem;
+            padding: 0.5rem 1rem;
+            background: transparent;
+            border: 1px dashed var(--border);
+            border-radius: 6px;
+            color: var(--text-dim);
+            font-size: var(--font-sm);
+            cursor: pointer;
+            opacity: 0.5;
+            transition: all 0.2s;
+        }
+        
+        .btn-scan-subtle:hover {
+            opacity: 1;
+            border-color: var(--accent);
+            color: var(--accent);
+            background: rgba(255, 153, 0, 0.05);
+        }
+        
+        .btn-scan-subtle:disabled {
+            cursor: not-allowed;
+            opacity: 0.3;
+        }
+        
+        /* Old sidebar brightness styles removed - now per-panel */
+        
+        .section-title {
+            font-size: var(--font-xs);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--text-dim);
+            margin-bottom: 0.5rem;
+        }
+        
+        /* Panel Items */
+        /* Panel Card Design */
+        .panel-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            overflow: hidden;
+            transition: all 0.15s;
+        }
+        
+        .panel-card:hover { border-color: var(--text-dim); }
+        .panel-card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+        .panel-card.identifying { animation: glow 1s infinite; }
+        .panel-card.disabled { opacity: 0.6; }
+        
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 5px var(--accent); }
+            50% { box-shadow: 0 0 20px var(--accent); }
+        }
+        
+        .panel-header {
+            display: flex;
+            align-items: center;
+            padding: 0.5rem 0.6rem;
+            gap: 0.5rem;
+            cursor: pointer;
+        }
+        
+        .panel-status {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            transition: all 0.2s;
+        }
+        
+        .panel-status.connected { background: var(--success); box-shadow: 0 0 6px var(--success); }
+        .panel-status.disconnected { background: var(--text-dim); }
+        .panel-status.disabled { background: #555; }
+        
+        .panel-info { flex: 1; min-width: 0; }
+        .panel-name { 
+            display: block; 
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+            font-size: var(--font-sm);
+            font-weight: 500;
+        }
+        .panel-mac {
+            font-size: 0.65rem;
+            color: var(--text-dim);
+            font-family: monospace;
+        }
+        
+        .panel-toggle-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        
+        .panel-toggle-btn:hover { border-color: var(--accent); color: var(--text); }
+        .panel-toggle-btn.connected { border-color: var(--success); color: var(--success); }
+        
+        .panel-controls {
+            display: none;
+            flex-direction: column;
+            gap: 0.5rem;
+            padding: 0.6rem;
+            background: var(--bg);
+            border-top: 1px solid var(--border);
+        }
+        
+        .panel-card.selected .panel-controls {
+            display: flex;
+        }
+        
+        .panel-controls-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .panel-rotation {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.3rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            flex: 1;
+        }
+        
+        .panel-actions {
+            display: flex;
+            gap: 4px;
+        }
+        
+        .panel-btn {
+            font-size: 0.8rem;
+            padding: 0.3rem 0.5rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: transparent;
+            color: var(--text-dim);
+            cursor: pointer;
+            transition: all 0.15s;
+            flex: 1;
+        }
+        
+        .panel-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .panel-btn.danger:hover { border-color: var(--error); color: var(--error); }
+        
+        .panel-brightness {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.3rem 0;
+        }
+        
+        .panel-brightness label {
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            min-width: 20px;
+        }
+        
+        .panel-brightness input[type="range"] {
+            flex: 1;
+            height: 4px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: var(--surface);
+            border-radius: 2px;
+            cursor: pointer;
+        }
+        
+        .panel-brightness input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+        }
+        
+        .panel-brightness span {
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            min-width: 30px;
+            text-align: right;
+        }
+        
+        .scan-status {
+            padding: 0.5rem 0.75rem;
+            background: var(--surface-2);
+            border-radius: 6px;
+            margin-bottom: 0.75rem;
+            font-size: var(--font-sm);
+            display: none;
+        }
+        
+        .scan-status.active { display: flex; align-items: center; gap: 0.5rem; }
+        
+        .no-panels { text-align: center; padding: 1.5rem 0.5rem; color: var(--text-dim); font-size: var(--font-sm); }
+        
+        /* Content Area */
+        .content {
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            overflow-y: auto;
+        }
+        
+        .tabs { display: flex; border-bottom: 1px solid var(--border); gap: 0.25rem; overflow-x: auto; overflow-y: hidden; }
+        
+        .tab {
+            padding: 0.6rem 1rem;
+            background: transparent;
+            border: none;
+            color: var(--text-dim);
+            cursor: pointer;
+            font-family: inherit;
+            font-size: var(--font-sm);
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
+            white-space: nowrap;
+            min-height: 44px;
+        }
+        
+        .tab:hover { color: var(--text); }
+        .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+        
+        .tab-content { display: none; flex: 1; overflow-y: auto; }
+        .tab-content.active { display: flex; flex-direction: column; gap: 1.25rem; }
+        
+        /* Buttons */
+        .btn {
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--surface);
+            color: var(--text);
+            font-family: inherit;
+            font-size: var(--font-sm);
+            cursor: pointer;
+            transition: all 0.15s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+            min-height: 44px;
+            min-width: 44px;
+        }
+        
+        .btn:hover, .btn:active { border-color: var(--text-dim); background: var(--surface-2); }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn.primary { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 600; }
+        .btn.primary:hover { background: var(--accent-dim); }
+        .btn.sm { padding: 0.4rem 0.7rem; font-size: var(--font-xs); min-height: 36px; }
+        .btn.danger { border-color: var(--error); color: var(--error); }
+        .btn.danger:hover { background: var(--error); color: #000; }
+        
+        .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        
+        /* Form Elements */
+        .upload-zone {
+            border: 2px dashed var(--border);
+            border-radius: 8px;
+            padding: 1.25rem;
+            text-align: center;
+            color: var(--text-dim);
+            cursor: pointer;
+            font-size: var(--font-sm);
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .upload-zone:hover, .upload-zone:active { border-color: var(--accent); background: var(--accent-glow); }
+        .upload-zone input { display: none; }
+        
+        input[type="text"], input[type="number"], select, textarea {
+            padding: 0.5rem 0.75rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text);
+            font-family: inherit;
+            font-size: var(--font-sm);
+            min-height: 44px;
+        }
+        
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+        
+        label { font-size: var(--font-xs); color: var(--text-dim); display: block; margin-bottom: 0.3rem; }
+        
+        /* Color Swatch */
+        .color-swatch {
+            width: 44px;
+            height: 44px;
+            border: 2px solid var(--border);
+            border-radius: 6px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .color-swatch:hover { border-color: var(--accent); }
+        .color-swatch input { position: absolute; inset: -10px; width: 200%; height: 200%; cursor: pointer; }
+        
+        /* Giphy Picker */
+        .giphy-search-box {
+            display: flex;
+        }
+        
+        .giphy-search-box input {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+        }
+        
+        .giphy-picker {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            overflow: hidden;
+        }
+        
+        .giphy-tabs {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem;
+            background: var(--surface-2);
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .giphy-tab {
+            padding: 0.4rem 0.8rem;
+            background: transparent;
+            border: none;
+            color: var(--text-dim);
+            cursor: pointer;
+            font-size: var(--font-sm);
+            border-radius: 4px;
+        }
+        
+        .giphy-tab:hover { background: var(--surface-3); color: var(--text); }
+        .giphy-tab.active { background: var(--accent-glow); color: var(--accent); }
+        
+        .giphy-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 0.5rem;
+            padding: 0.75rem;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .giphy-item {
+            aspect-ratio: 1;
+            border-radius: 6px;
+            overflow: hidden;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.15s;
+        }
+        
+        .giphy-item:hover { border-color: var(--accent); transform: scale(1.02); }
+        .giphy-item img { width: 100%; height: 100%; object-fit: cover; }
+        
+        .giphy-load-more {
+            padding: 0.75rem;
+            text-align: center;
+            border-top: 1px solid var(--border);
+        }
+        
+        /* Images Tab */
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 0.75rem;
+        }
+        
+        /* iPixel Library Section */
+        .ipixel-section {
+            margin-top: 1.5rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+            background: rgba(255,255,255,0.02);
+        }
+        
+        .ipixel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem 1rem;
+            background: linear-gradient(135deg, rgba(138,43,226,0.15), rgba(255,105,180,0.1));
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.2s;
+        }
+        
+        .ipixel-header:hover {
+            background: linear-gradient(135deg, rgba(138,43,226,0.25), rgba(255,105,180,0.2));
+        }
+        
+        .ipixel-header span:first-child {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+        
+        .ipixel-count {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            background: var(--bg);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+        }
+        
+        .ipixel-toggle {
+            font-size: 0.8rem;
+            transition: transform 0.3s;
+        }
+        
+        .ipixel-toggle.open {
+            transform: rotate(180deg);
+        }
+        
+        .ipixel-content {
+            padding: 1rem;
+        }
+        
+        .ipixel-categories {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+        }
+        
+        .ipixel-category {
+            padding: 0.4rem 0.8rem;
+            font-size: 0.75rem;
+            border-radius: 20px;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: capitalize;
+        }
+        
+        .ipixel-category:hover {
+            border-color: var(--primary);
+        }
+        
+        .ipixel-category.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        
+        .image-card {
+            aspect-ratio: 1;
+            background: var(--surface);
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.15s;
+            position: relative;
+        }
+        
+        .image-card:hover, .image-card:active { border-color: var(--accent); transform: translateY(-2px); }
+        .image-card.selected { border-color: var(--accent); box-shadow: 0 0 20px var(--accent-glow); }
+        .image-card img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
+        
+        .image-card.gif::after {
+            content: 'GIF';
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            background: var(--accent);
+            color: #000;
+            font-size: var(--font-xs);
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        
+        .image-name {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(transparent, rgba(0,0,0,0.9));
+            padding: 1rem 0.4rem 0.3rem;
+            font-size: var(--font-xs);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .image-delete {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            background: rgba(0,0,0,0.8);
+            border: none;
+            color: var(--error);
+            width: 28px;
+            height: 28px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* Image Preview */
+        .image-preview-center {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+            padding: 1.5rem;
+            background: var(--panel-bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+        }
+        
+        .image-preview-center h4 {
+            font-size: var(--font-xs);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-dim);
+        }
+        
+        .preview-wrap {
+            background: #000;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        
+        .preview-wrap img {
+            display: block;
+            width: 192px;
+            height: 192px;
+            border-radius: 4px;
+        }
+        
+        /* Text Editor */
+        .text-editor {
+            max-width: 600px;
+            margin: 0 auto;
+            width: 100%;
+        }
+        
+        .text-input-large {
+            width: 100%;
+            padding: 0.75rem;
+            font-size: 1.1rem;
+            text-align: center;
+            background: var(--surface);
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-family: inherit;
+            resize: vertical;
+            min-height: 70px;
+        }
+        
+        .text-input-large:focus { border-color: var(--accent); outline: none; }
+        
+        .text-preview-large {
+            background: var(--panel-bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+        
+        .text-preview-large h4 {
+            font-size: var(--font-xs);
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .text-preview-large .preview-wrap canvas {
+            width: 192px;
+            height: 192px;
+        }
+        
+        .text-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 1rem;
+            align-items: end;
+        }
+        
+        .text-controls .colors-group {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .text-controls .font-group {
+            flex: 1;
+            min-width: 150px;
+        }
+        
+        .control-group { display: flex; flex-direction: column; }
+        .control-group input, .control-group select { width: 100%; }
+        .control-group.size-control input { width: 70px; }
+        
+        .text-actions {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+        
+        /* Emoji Keyboard */
+        .emoji-keyboard {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            margin-top: 1.25rem;
+            overflow: hidden;
+        }
+        
+        .emoji-keyboard-header {
+            display: flex;
+            gap: 2px;
+            padding: 0.5rem;
+            background: var(--surface-2);
+            border-bottom: 1px solid var(--border);
+            overflow-x: auto;
+        }
+        
+        .emoji-cat-btn {
+            padding: 0.5rem 0.6rem;
+            background: transparent;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1.2rem;
+            opacity: 0.6;
+            transition: all 0.15s;
+            min-width: 44px;
+            min-height: 44px;
+        }
+        
+        .emoji-cat-btn:hover, .emoji-cat-btn:active { opacity: 1; background: var(--surface-3); }
+        .emoji-cat-btn.active { opacity: 1; background: var(--accent-glow); }
+        
+        .emoji-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+            gap: 4px;
+            padding: 0.75rem;
+            max-height: 250px;
+            overflow-y: auto;
+        }
+        
+        .emoji-btn {
+            font-size: 1.5rem;
+            padding: 0.4rem;
+            background: transparent;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.1s;
+            text-align: center;
+            min-width: 44px;
+            min-height: 44px;
+        }
+        
+        .emoji-btn:hover, .emoji-btn:active { background: var(--surface-2); transform: scale(1.15); }
+        
+        /* Grid Setup - Combined View */
+        .grid-setup { display: flex; flex-direction: column; gap: 1rem; }
+        
+        .grid-instructions {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            font-size: var(--font-sm);
+            color: var(--text-dim);
+        }
+        
+        .grid-instructions strong { color: var(--accent); }
+        
+        .grid-combined {
+            display: grid;
+            grid-template-columns: 1fr 280px;
+            gap: 1.25rem;
+            align-items: start;
+        }
+        
+        .grid-preview-area {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1rem;
+        }
+        
+        .grid-preview-area h4 {
+            font-size: var(--font-xs);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-dim);
+            margin-bottom: 0.75rem;
+            text-align: center;
+        }
+        
+        .grid-size-row {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+            font-size: var(--font-sm);
+        }
+        
+        .grid-size-row input { width: 60px; text-align: center; }
+        
+        .led-canvas-container {
+            display: flex;
+            justify-content: center;
+            position: relative;
+        }
+        
+        .led-canvas-wrap {
+            background: #050508;
+            border-radius: 8px;
+            padding: 10px;
+            position: relative;
+            display: inline-block;
+        }
+        
+        .led-canvas-wrap canvas, .led-canvas-wrap img {
+            display: block;
+            image-rendering: pixelated;
+        }
+        
+        .grid-overlay {
+            position: absolute;
+            inset: 10px;
+            display: grid;
+            pointer-events: none;
+        }
+        
+        .grid-overlay-cell {
+            border: 1px dashed rgba(255,153,0,0.3);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .grid-overlay-cell:hover { background: rgba(255,153,0,0.1); border-color: var(--accent); }
+        .grid-overlay-cell.drag-over { background: rgba(255,153,0,0.25); border-style: solid; border-color: var(--accent); }
+        .grid-overlay-cell.assigned { background: rgba(255,153,0,0.15); border-style: solid; border-color: var(--accent); }
+        
+        .grid-overlay-cell .cell-num {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent);
+            opacity: 0.6;
+            text-shadow: 0 0 10px rgba(0,0,0,0.8);
+        }
+        
+        .grid-overlay-cell .cell-label {
+            font-size: var(--font-xs);
+            color: var(--text);
+            text-shadow: 0 0 5px rgba(0,0,0,0.9);
+            max-width: 90%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .panels-sidebar {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1rem;
+        }
+        
+        .panels-sidebar h4 {
+            font-size: var(--font-xs);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-dim);
+            margin-bottom: 0.75rem;
+        }
+        
+        .drag-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.6rem 0.75rem;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            margin-bottom: 0.4rem;
+            cursor: grab;
+            font-size: var(--font-sm);
+            transition: all 0.15s;
+            min-height: 48px;
+        }
+        
+        .drag-item:hover { border-color: var(--accent); transform: translateX(3px); }
+        .drag-item.dragging { opacity: 0.5; cursor: grabbing; }
+        .drag-item.used { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+        
+        .drag-item .num {
+            background: var(--accent);
+            color: #000;
+            min-width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: var(--font-xs);
+            font-weight: 700;
+        }
+        
+        .drag-hint { font-size: var(--font-xs); color: var(--text-dim); margin-top: 0.75rem; text-align: center; }
+        
+        .grid-actions { margin-top: 1rem; display: flex; justify-content: center; gap: 0.5rem; flex-wrap: wrap; }
+        
+        /* Logs Sidebar */
+        .sidebar-right {
+            background: var(--surface);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .log-header {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .log-header h3 { font-size: var(--font-xs); text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-dim); }
+        
+        .log-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.5rem;
+            font-size: var(--font-sm);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .log-entry { padding: 0.3rem 0.4rem; display: flex; gap: 0.5rem; border-radius: 4px; }
+        .log-entry:nth-child(odd) { background: var(--surface-2); }
+        
+        /* Log footer with adapter info */
+        .log-footer {
+            border-top: 1px solid var(--border);
+            padding: 0.5rem;
+            font-size: var(--font-xs);
+            background: var(--surface-2);
+        }
+        
+        .adapter-info {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            color: var(--text-muted);
+            padding: 0.3rem 0;
+        }
+        
+        .adapter-icon { font-size: 0.9rem; }
+        .adapter-name { opacity: 0.8; }
+        
+        /* Safe mode banner with blue gradient stripes */
+        .safe-mode-banner {
+            margin-top: 0.5rem;
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+            padding: 0.5rem 0.7rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+        }
+        
+        .safe-mode-stripes {
+            position: absolute;
+            inset: 0;
+            background: repeating-linear-gradient(
+                45deg,
+                #1e3a5f,
+                #1e3a5f 10px,
+                #0d47a1 10px,
+                #0d47a1 20px
+            );
+            opacity: 0.9;
+            animation: stripe-move 2s linear infinite;
+        }
+        
+        @keyframes stripe-move {
+            0% { background-position: 0 0; }
+            100% { background-position: 28px 0; }
+        }
+        
+        .safe-mode-text {
+            position: relative;
+            color: #90caf9;
+            font-weight: 600;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+        }
+        
+        .safe-mode-banner .btn {
+            position: relative;
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            font-size: 0.65rem;
+            padding: 0.2rem 0.5rem;
+        }
+        
+        .safe-mode-banner .btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        .log-entry .time { color: var(--text-dim); flex-shrink: 0; }
+        .log-entry.success .msg { color: var(--success); }
+        .log-entry.error .msg { color: var(--error); }
+        
+        /* Utilities */
+        .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .loading { display: none; align-items: center; gap: 0.5rem; color: var(--text-dim); font-size: var(--font-sm); }
+        .loading.active { display: flex; }
+        
+        /* Overlays */
+        .identify-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.92);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            flex-direction: column;
+            gap: 1.5rem;
+            padding: 2rem;
+        }
+        
+        .identify-overlay.active { display: flex; }
+        
+        .identify-number { font-size: 8rem; font-weight: 200; color: var(--accent); line-height: 1; font-family: 'Helvetica Neue', Arial, sans-serif; }
+        .identify-info { font-size: 1.1rem; color: var(--text-dim); text-align: center; }
+        .identify-panel-name { color: var(--accent); font-weight: 600; }
+        
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: none; align-items: center; justify-content: center; z-index: 1000; padding: 1rem; }
+        .modal-overlay.active { display: flex; }
+        
+        .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; min-width: 300px; max-width: 90vw; }
+        .modal h3 { font-size: 1rem; margin-bottom: 1rem; color: var(--accent); }
+        .modal-actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem; }
+        
+        footer { background: var(--surface); border-top: 1px solid var(--border); padding: 0.6rem 1.5rem; text-align: center; font-size: var(--font-xs); color: var(--text-dim); }
+        footer .secret-trigger { color: var(--accent); cursor: pointer; user-select: none; }
+        footer .secret-trigger:hover { text-decoration: underline; }
+        
+        /* Matrix Tab (Hidden Easter Egg) */
+        .tab.matrix-tab { display: none; background: linear-gradient(135deg, #1a1a25, #252535); }
+        .tab.matrix-tab.revealed { display: inline-flex; animation: matrixReveal 0.5s ease-out; }
+        @keyframes matrixReveal {
+            from { transform: scale(0); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        
+        .matrix-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 1rem;
+            padding: 1rem 0;
+        }
+        
+        .matrix-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .matrix-item:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 153, 0, 0.2);
+        }
+        .matrix-item.selected {
+            border-color: var(--accent);
+            background: var(--accent-glow);
+        }
+        
+        .matrix-item canvas {
+            border-radius: 4px;
+            image-rendering: pixelated;
+        }
+        
+        .matrix-item-label {
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            text-align: center;
+        }
+        
+        .matrix-preview {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            padding: 1.5rem;
+            background: var(--surface-2);
+            border-radius: 12px;
+        }
+        
+        .matrix-preview canvas {
+            border: 2px solid var(--border);
+            border-radius: 4px;
+            image-rendering: pixelated;
+        }
+        
+        .matrix-category {
+            margin-bottom: 1.5rem;
+        }
+        .matrix-category h4 {
+            color: var(--accent);
+            margin-bottom: 0.75rem;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .matrix-category h4::before {
+            content: '';
+            flex: 0 0 3px;
+            height: 1rem;
+            background: var(--accent);
+            border-radius: 2px;
+        }
+        
+        /* Responsive */
+        @media (max-width: 1200px) {
+            main { grid-template-columns: 240px 1fr; }
+            .sidebar-right { display: none; }
+            .grid-combined { grid-template-columns: 1fr; }
+            .panels-sidebar { order: -1; }
+        }
+        
+        @media (max-width: 900px) {
+            main { grid-template-columns: 1fr; }
+            aside { 
+                position: fixed; 
+                left: -280px; 
+                top: 0; 
+                bottom: 0; 
+                width: 280px; 
+                z-index: 100; 
+                transition: left 0.3s;
+                border-right: 1px solid var(--border);
+            }
+            aside.open { left: 0; box-shadow: 5px 0 20px rgba(0,0,0,0.5); }
+            .menu-toggle { display: flex !important; }
+            .content { padding: 1rem; }
+            .image-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
+            .text-controls { grid-template-columns: repeat(2, 1fr); }
+        }
+        
+        @media (max-width: 600px) {
+            header { padding: 0.5rem 1rem; }
+            .logo { font-size: 1.1rem; }
+            .text-editor { max-width: 100%; }
+            .preview-wrap img, .text-preview-large .preview-wrap canvas { width: 160px; height: 160px; }
+            .identify-number { font-size: 5rem; }
+            .text-controls { grid-template-columns: 1fr 1fr; }
+        }
+        
+        .menu-toggle {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            width: 44px;
+            height: 44px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1.2rem;
+        }
+        
+        .menu-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 99;
+        }
+        
+        .menu-overlay.active { display: block; }
+    </style>
+</head>
+<body>
+    <header>
+        <div style="display:flex;align-items:center;gap:0.75rem;">
+            <button class="menu-toggle" onclick="toggleMenu()">☰</button>
+            <a href="#" class="logo" onclick="goHome(event)">PANEL HOPPER</a>
+        </div>
+    </header>
+    
+    <div class="menu-overlay" onclick="toggleMenu()"></div>
+    
+    <main>
+        <aside id="sidebar">
+            <div class="sidebar-main">
+                <div class="section-title">Panels</div>
+                <div class="scan-status" id="scan-status">
+                    <span class="spinner"></span>
+                    <span id="scan-status-text">Scanning...</span>
+                </div>
+                <div id="panels-list"></div>
+                <button class="btn-scan-subtle" id="btn-scan" onclick="scanPanels()">🔍 Scan for Panels</button>
+            </div>
+        </aside>
+        
+        <div class="content">
+            <div class="tabs">
+                <button class="tab active" data-tab="images">Images</button>
+                <button class="tab" data-tab="text">Text</button>
+                <button class="tab" data-tab="grid">Grid Setup</button>
+                <button class="tab matrix-tab" data-tab="matrix" id="matrix-tab-btn">🚦 Matrix</button>
+            </div>
+            
+            <!-- Images Tab -->
+            <div class="tab-content active" id="tab-images">
+                <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+                    <div class="upload-zone" id="upload-zone" style="flex:1;min-width:200px;">
+                        <input type="file" id="file-input" accept="image/*,.gif" multiple>
+                        📁 Drop images/GIFs or click
+                    </div>
+                    <div class="giphy-search-box" style="flex:1;min-width:200px;opacity:0.5;pointer-events:none;">
+                        <input type="text" id="giphy-search" placeholder="🔍 Giphy Search — Coming Soon" disabled
+                               style="cursor:not-allowed;">
+                    </div>
+                </div>
+                
+                <!-- Giphy Picker (disabled for now) -->
+                <div class="giphy-picker" id="giphy-picker" style="display:none;"></div>
+                
+                <!-- Preview Section (ABOVE image grids) -->
+                <div class="image-preview-center" id="image-preview-section" style="display:none;">
+                    <h4>Panel Preview (32×32)</h4>
+                    <div class="preview-wrap">
+                        <img id="image-preview" src="" alt="preview">
+                    </div>
+                    <div class="actions">
+                        <button class="btn primary" id="btn-send-single" disabled>→ Send to Panel</button>
+                        <button class="btn" id="btn-send-all" disabled>⇒ All Panels</button>
+                    </div>
+                    <div id="gif-info" style="display:none;text-align:center;font-size:0.75rem;color:var(--text-dim);margin-top:0.5rem;">
+                        🎬 Animated GIF detected
+                    </div>
+                    <div class="loading" id="loading"><span class="spinner"></span> Sending...</div>
+                </div>
+                
+                <!-- Your Images -->
+                <div class="image-grid" id="image-grid"></div>
+                
+                <!-- iPixel GIFs Section -->
+                <div class="ipixel-section" id="ipixel-section">
+                    <div class="ipixel-header" onclick="toggleIpixelSection()">
+                        <span>🎨 iPixel Library</span>
+                        <span class="ipixel-count" id="ipixel-count">0 GIFs</span>
+                        <span class="ipixel-toggle" id="ipixel-toggle">▼</span>
+                    </div>
+                    <div class="ipixel-content" id="ipixel-content" style="display:none;">
+                        <div class="ipixel-categories" id="ipixel-categories"></div>
+                        <div class="image-grid" id="ipixel-grid"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Text Tab -->
+            <div class="tab-content" id="tab-text">
+                <div class="text-editor">
+                    <textarea class="text-input-large" id="text-input" placeholder="Enter text... (Enter for new lines)" oninput="updateTextPreview()" rows="2"></textarea>
+                    
+                    <div class="text-preview-large">
+                        <h4>Panel Preview (32×32) - Auto-sized</h4>
+                        <div class="preview-wrap">
+                            <canvas id="text-preview-canvas" width="32" height="32"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="text-controls">
+                        <div class="colors-group">
+                            <div class="control-group">
+                                <label>Color</label>
+                                <div class="color-swatch" id="color-swatch" style="background:#ff9900;">
+                                    <input type="color" id="text-color" value="#ff9900" oninput="this.parentElement.style.background=this.value;updateTextPreview()">
+                                </div>
+                            </div>
+                            <div class="control-group">
+                                <label>BG</label>
+                                <div class="color-swatch" id="bg-swatch" style="background:#000000;">
+                                    <input type="color" id="text-bg" value="#000000" oninput="this.parentElement.style.background=this.value;updateTextPreview()">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="control-group font-group">
+                            <label>Font</label>
+                            <select id="text-font" onchange="handleFontChange()">
+                                <option value="default">System Default</option>
+                                <option value="dotmatrix">Dot Matrix</option>
+                                <optgroup label="Pixel Fonts">
+                                    <option value="Press Start 2P">Press Start 2P</option>
+                                    <option value="VT323">VT323</option>
+                                    <option value="Silkscreen">Silkscreen</option>
+                                    <option value="DotGothic16">DotGothic16</option>
+                                    <option value="Share Tech Mono">Share Tech Mono</option>
+                                </optgroup>
+                                <optgroup label="Custom" id="custom-fonts-group"></optgroup>
+                                <optgroup label="───────">
+                                    <option value="__upload__">📁 Upload...</option>
+                                </optgroup>
+                            </select>
+                            <input type="file" id="font-upload" accept=".ttf,.otf" style="display:none" onchange="uploadFont(this)">
+                        </div>
+                        <div class="control-group">
+                            <label>Style</label>
+                            <select id="text-style" onchange="updateTextPreview()">
+                                <option value="regular">Regular</option>
+                                <option value="bold">Bold</option>
+                                <option value="italic">Italic</option>
+                                <option value="bold-italic">Bold Italic</option>
+                            </select>
+                        </div>
+                        <div class="control-group size-control">
+                            <label>Size</label>
+                            <input type="number" id="text-size" value="24" min="8" max="32" oninput="updateTextPreview()">
+                        </div>
+                    </div>
+                    
+                    <div class="text-actions">
+                        <button class="btn primary" onclick="sendText('single')">→ Panel</button>
+                        <button class="btn" onclick="sendText('all')">⇒ All</button>
+                        <button class="btn" onclick="sendText('grid')">⊞ Grid</button>
+                    </div>
+                    
+                    <div class="loading" id="loading-text" style="justify-content:center;margin-top:0.5rem;"><span class="spinner"></span> Sending...</div>
+                    
+                    <!-- Emoji Keyboard -->
+                    <div class="emoji-keyboard">
+                        <div class="emoji-keyboard-header">
+                            <button class="emoji-cat-btn active" onclick="showEmojiCat('smileys', this)">😀</button>
+                            <button class="emoji-cat-btn" onclick="showEmojiCat('people', this)">👋</button>
+                            <button class="emoji-cat-btn" onclick="showEmojiCat('animals', this)">🐱</button>
+                            <button class="emoji-cat-btn" onclick="showEmojiCat('food', this)">🍕</button>
+                            <button class="emoji-cat-btn" onclick="showEmojiCat('activities', this)">⚽</button>
+                            <button class="emoji-cat-btn" onclick="showEmojiCat('travel', this)">🚗</button>
+                            <button class="emoji-cat-btn" onclick="showEmojiCat('objects', this)">💡</button>
+                            <button class="emoji-cat-btn" onclick="showEmojiCat('symbols', this)">❤️</button>
+                            <button class="emoji-cat-btn" onclick="showEmojiCat('flags', this)">🏳️</button>
+                        </div>
+                        <div class="emoji-grid" id="emoji-grid"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Grid Tab -->
+            <div class="tab-content" id="tab-grid">
+                <div class="grid-setup">
+                    <div class="grid-instructions">
+                        <strong>Drag panels</strong> from the list onto the LED preview below. The overlay shows where each panel is positioned.
+                    </div>
+                    
+                    <div class="grid-combined">
+                        <div class="grid-preview-area">
+                            <h4>LED Preview - Drop Panels Here</h4>
+                            <div class="grid-size-row">
+                                <span>Grid:</span>
+                                <input type="number" id="grid-cols" value="2" min="1" max="4" onchange="updateGridSize()">
+                                <span>×</span>
+                                <input type="number" id="grid-rows" value="2" min="1" max="4" onchange="updateGridSize()">
+                            </div>
+                            <div class="led-canvas-container">
+                                <div class="led-canvas-wrap" id="led-canvas-wrap">
+                                    <img id="grid-preview-img" src="" alt="Preview" style="width:160px;height:160px;">
+                                    <div class="grid-overlay" id="grid-overlay"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="panels-sidebar">
+                            <h4>Available Panels</h4>
+                            <div id="drag-items"></div>
+                            <div class="drag-hint">↖ Drag onto preview</div>
+                        </div>
+                    </div>
+                    
+                    <div class="grid-actions">
+                        <button class="btn primary" id="btn-send-grid-arr" disabled onclick="sendGridArranged()">⊞ Send to Grid</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Matrix Tab (Hidden Easter Egg - Dutch Highway Signs) -->
+            <div class="tab-content" id="tab-matrix">
+                <div class="matrix-preview">
+                    <h4>🚦 Snelweg Matrixbord Preview</h4>
+                    <canvas id="matrix-preview-canvas" width="128" height="128"></canvas>
+                    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;align-items:center;margin-top:0.5rem;">
+                        <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.8rem;color:var(--text-dim);cursor:pointer;">
+                            <input type="checkbox" id="flasher-toggle" onchange="toggleFlashers(this.checked)">
+                            <span>⚠️ AID Flashers</span>
+                        </label>
+                    </div>
+                    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;margin-top:0.75rem;">
+                        <button class="btn primary" onclick="sendMatrixToPanel()">→ Send to Panel</button>
+                        <button class="btn" onclick="sendMatrixToAll()">⇒ All Panels</button>
+                    </div>
+                    <div style="font-size:0.65rem;color:var(--text-dim);margin-top:0.5rem;text-align:center;">
+                        Gebaseerd op <a href="https://nl.wikipedia.org/wiki/Rijstrooksignalering" target="_blank" style="color:var(--accent);">Rijstrooksignalering</a>
+                    </div>
+                </div>
+                
+                <div class="matrix-category">
+                    <h4>Snelheidslimieten</h4>
+                    <div class="matrix-grid" id="matrix-speeds"></div>
+                </div>
+                
+                <div class="matrix-category">
+                    <h4>Rijstrook Signalen</h4>
+                    <div class="matrix-grid" id="matrix-lanes"></div>
+                </div>
+                
+                <div class="matrix-category">
+                    <h4>Waarschuwingen</h4>
+                    <div class="matrix-grid" id="matrix-warnings"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="sidebar-right">
+            <div class="log-header">
+                <h3>Activity Log</h3>
+                <button class="btn sm" onclick="clearLogs()">Clear</button>
+            </div>
+            <div class="log-content" id="log-content"></div>
+            <div class="log-footer">
+                <div class="adapter-info" id="adapter-info">
+                    <span class="adapter-icon">📡</span>
+                    <span class="adapter-name" id="adapter-name">Bluetooth Adapter</span>
+                </div>
+                <div class="safe-mode-banner" id="safe-mode-banner" style="display: none;">
+                    <div class="safe-mode-stripes"></div>
+                    <span class="safe-mode-text">⚡ BLE Safe Mode</span>
+                    <button class="btn sm" onclick="resetSafeMode()" title="Try fast mode again">Reset</button>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <footer>© <span id="year"></span> Panel Hopper · <span class="secret-trigger" id="secret-trigger">[HOP]Ferrywell</span></footer>
+    
+    <div class="identify-overlay" id="identify-overlay">
+        <div class="identify-number" id="identify-number">1</div>
+        <div class="identify-info">Identifying <span class="identify-panel-name" id="identify-name">panel</span></div>
+        <button class="btn danger" onclick="stopIdentify()">Stop Identifying</button>
+    </div>
+    
+    <div class="modal-overlay" id="rename-modal">
+        <div class="modal">
+            <h3>Rename Panel</h3>
+            <input type="text" id="rename-input" placeholder="Enter name..." style="width:100%;">
+            <input type="hidden" id="rename-mac">
+            <div class="modal-actions">
+                <button class="btn" onclick="closeModal('rename-modal')">Cancel</button>
+                <button class="btn primary" onclick="submitRename()">Save</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // State
+        let panels = [], images = [], logs = [];
+        let selectedPanel = null, selectedImage = null, selectedImageData = null;
+        let gridAssignments = {};
+        let gridCols = 2, gridRows = 2;
+        let identifyingMac = null;
+        let customFonts = [];
+        
+        // iPixel GIFs state
+        let ipixelGifs = [];
+        let ipixelCategories = [];
+        let ipixelSelectedCategory = 'all';
+        let ipixelExpanded = false;
+        let globalBrightness = 100;
+        
+        document.getElementById('year').textContent = new Date().getFullYear();
+        
+        // Menu toggle for mobile
+        function toggleMenu() {
+            document.getElementById('sidebar').classList.toggle('open');
+            document.querySelector('.menu-overlay').classList.toggle('active');
+        }
+        
+        function goHome(e) {
+            e.preventDefault();
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelector('.tab[data-tab="images"]').classList.add('active');
+            document.getElementById('tab-images').classList.add('active');
+        }
+        
+        async function init() {
+            await Promise.all([loadPanels(), loadImages(), loadFonts(), loadBrightness(), loadIpixelGifs()]);
+            setupEventListeners();
+            pollLogs();
+            pollConnectionStatus();  // Start connection status polling
+            updateGridSize();
+            updateTextPreview();
+            renderEmojiGrid();
+        }
+        
+        // Connection status polling - keeps frontend in sync with backend
+        let wasSafeMode = false;
+        
+        async function pollConnectionStatus() {
+            try {
+                const res = await fetch('/api/panels/status');
+                const data = await res.json();
+                
+                // Update local panel data with connection status from backend
+                if (data.panels && Array.isArray(data.panels)) {
+                    data.panels.forEach(status => {
+                        if (!status) return;
+                        const panel = panels.find(p => p.mac === status.mac);
+                        if (panel) {
+                            const wasConnected = panel.connected;
+                            panel.connected = status.connected;
+                            panel.brightness = status.brightness || panel.brightness;
+                            panel.rotation = status.rotation || panel.rotation;
+                            
+                            // Log connection changes
+                            if (wasConnected !== status.connected) {
+                                if (status.connected) {
+                                    addLog(`${panel.name}: Connected`, 'success');
+                                } else {
+                                    addLog(`${panel.name}: Disconnected`, 'warning');
+                                }
+                                renderPanels();  // Re-render to show new status
+                            }
+                        }
+                    });
+                }
+                
+                // Update adapter info
+                const adapterEl = document.getElementById('adapter-name');
+                if (adapterEl && data.adapter_name) {
+                    adapterEl.textContent = data.adapter_name;
+                }
+                
+                // Update safe mode banner
+                const safeModeEl = document.getElementById('safe-mode-banner');
+                if (safeModeEl) {
+                    if (data.safe_mode) {
+                        safeModeEl.style.display = 'flex';
+                        if (!wasSafeMode) {
+                            addLog('⚡ BLE Safe Mode activated - using slower but compatible mode', 'warning');
+                            wasSafeMode = true;
+                        }
+                    } else {
+                        safeModeEl.style.display = 'none';
+                        wasSafeMode = false;
+                    }
+                }
+            } catch (err) {
+                // Silently ignore polling errors
+            }
+            setTimeout(pollConnectionStatus, 3000);  // Poll every 3 seconds
+        }
+        
+        async function resetSafeMode() {
+            try {
+                await fetch('/api/ble/reset-safe-mode', { method: 'POST' });
+                addLog('Safe mode reset - will try fast mode on next connection', 'info');
+                const safeModeEl = document.getElementById('safe-mode-banner');
+                if (safeModeEl) safeModeEl.style.display = 'none';
+                wasSafeMode = false;
+            } catch (err) {
+                addLog('Failed to reset safe mode', 'error');
+            }
+        }
+        
+        // Brightness - only log on release
+        async function loadBrightness() {
+            // Brightness is now per-panel, loaded separately
+        }
+        
+        // Panel Hardware Controls (discovered via iPixel BLE sniffing)
+        async function saveAsStartup() {
+            const enabledPanels = panels.filter(p => p.enabled);
+            if (enabledPanels.length === 0) {
+                addLog('No panels enabled', 'warning');
+                return;
+            }
+            
+            if (!confirm('Save the current display as the startup image on all enabled panels?\n\nThis will be shown when the panel powers on or loses connection.')) {
+                return;
+            }
+            
+            addLog('Saving startup image on all panels...', 'info');
+            
+            try {
+                const res = await fetch('/api/panels/all/save-startup', { method: 'POST' });
+                const data = await res.json();
+                
+                const successCount = data.results.filter(r => r.success).length;
+                if (successCount > 0) {
+                    addLog(`✓ Startup image saved on ${successCount}/${enabledPanels.length} panels!`, 'success');
+                } else {
+                    addLog('Save failed - command not acknowledged', 'warning');
+                }
+            } catch (err) {
+                addLog(`Save error: ${err.message}`, 'error');
+            }
+        }
+        
+        // Panels
+        async function loadPanels() {
+            try {
+                const res = await fetch('/api/panels');
+                const data = await res.json();
+                panels = data.panels;
+                renderPanels();
+                renderDragItems();
+            } catch (err) { console.error(err); }
+        }
+        
+        // Connection state is now managed by Panel Manager on server
+        
+        function renderPanels() {
+            const container = document.getElementById('panels-list');
+            
+            if (panels.length === 0) {
+                container.innerHTML = `
+                    <div class="no-panels">
+                        <p>No panels found</p>
+                        <p style="font-size:0.7rem;margin:0.5rem 0;">Click Scan to discover nearby LED panels</p>
+                    </div>`;
+                return;
+            }
+            
+            container.innerHTML = panels.map((p, i) => {
+                // Use server-side connection status (from Panel Manager)
+                const isConnected = p.connected || false;
+                const isSelected = selectedPanel === p.mac;
+                const statusClass = !p.enabled ? 'disabled' : (isConnected ? 'connected' : 'disconnected');
+                
+                // Get brightness and rotation from server
+                const brightness = p.brightness || 100;
+                const rotation = p.rotation || 0;
+                
+                // Determine button text based on state
+                let connectBtnText, connectBtnClass;
+                if (!p.enabled) {
+                    connectBtnText = 'Disabled';
+                    connectBtnClass = 'disabled-state';
+                } else if (isConnected) {
+                    connectBtnText = '⚡ Connected';
+                    connectBtnClass = 'connected';
+                } else {
+                    connectBtnText = '🔌 Connect';
+                    connectBtnClass = '';
+                }
+                
+                return `
+                <div class="panel-card ${isSelected ? 'selected' : ''} ${identifyingMac === p.mac ? 'identifying' : ''} ${!p.enabled ? 'disabled' : ''}" data-mac="${p.mac}">
+                    <div class="panel-header" onclick="selectPanel('${p.mac}')">
+                        <span class="panel-status ${statusClass}"></span>
+                        <div class="panel-info">
+                            <span class="panel-name">${p.name}</span>
+                            <span class="panel-mac">${p.mac}</span>
+                        </div>
+                        <button class="panel-toggle-btn ${connectBtnClass}" 
+                                onclick="event.stopPropagation();toggleConnection('${p.mac}')"
+                                title="${isConnected ? 'Disconnect' : 'Connect'}">
+                            ${connectBtnText}
+                        </button>
+                    </div>
+                    
+                    <div class="panel-controls">
+                        <!-- Brightness -->
+                        <div class="panel-brightness">
+                            <label>☀</label>
+                            <input type="range" min="1" max="100" value="${brightness}" 
+                                   oninput="this.nextElementSibling.textContent = this.value + '%'"
+                                   onchange="setPanelBrightness('${p.mac}', this.value)">
+                            <span>${brightness}%</span>
+                        </div>
+                        
+                        <!-- Rotation -->
+                        <div class="panel-controls-row">
+                            <select class="panel-rotation" 
+                                    onclick="event.stopPropagation()" 
+                                    onchange="setPanelRotation('${p.mac}', this.value)">
+                                <option value="0" ${rotation === 0 ? 'selected' : ''}>↻ 0°</option>
+                                <option value="1" ${rotation === 1 ? 'selected' : ''}>↻ 90°</option>
+                                <option value="2" ${rotation === 2 ? 'selected' : ''}>↻ 180°</option>
+                                <option value="3" ${rotation === 3 ? 'selected' : ''}>↻ 270°</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Actions Row -->
+                        <div class="panel-controls-row">
+                            <button class="panel-btn" onclick="event.stopPropagation();identifyPanel('${p.mac}', ${i + 1})" title="Flash panel with number">
+                                🔦 Identify
+                            </button>
+                            <button class="panel-btn" onclick="event.stopPropagation();openRenameModal('${p.mac}', '${p.name}')" title="Rename panel">
+                                ✎ Rename
+                            </button>
+                        </div>
+                        
+                        <!-- Enable/Disable -->
+                        <div class="panel-controls-row">
+                            <button class="panel-btn ${p.enabled ? 'danger' : ''}" 
+                                    onclick="event.stopPropagation();togglePanel('${p.mac}')"
+                                    style="width:100%;">
+                                ${p.enabled ? '○ Disable Panel' : '✓ Enable Panel'}
+                            </button>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+        
+        function selectPanel(mac) {
+            selectedPanel = mac;
+            renderPanels();
+            updateButtons();
+        }
+        
+        async function togglePanel(mac) { 
+            console.log('togglePanel called:', mac);
+            try {
+                const res = await fetch(`/api/panels/${encodeURIComponent(mac)}/toggle`, { method: 'POST' }); 
+                console.log('Toggle response:', res.status);
+                await loadPanels();
+            } catch (err) {
+                console.error('Toggle error:', err);
+                addLog(`Toggle failed: ${err.message}`, 'error');
+            }
+        }
+        
+        async function toggleConnection(mac) {
+            console.log('toggleConnection called:', mac);
+            const panel = panels.find(p => p.mac === mac);
+            const name = panel ? panel.name : mac;
+            // Use server-side connection status
+            const isConnected = panel ? panel.connected : false;
+            
+            if (isConnected) {
+                // Disconnect
+                addLog(`Disconnecting ${name}...`, 'info');
+                try {
+                    const res = await fetch(`/api/panels/${encodeURIComponent(mac)}/disconnect`, { method: 'POST' });
+                    await res.json();
+                    // Reload panels to get updated status from Panel Manager
+                    await loadPanels();
+                    addLog(`${name}: Disconnected`, 'info');
+                } catch (err) {
+                    console.error('Disconnect error:', err);
+                    addLog(`Disconnect failed: ${err.message}`, 'error');
+                }
+            } else {
+                // Connect
+                addLog(`Connecting to ${name}...`, 'info');
+                try {
+                    const fd = new FormData();
+                    fd.append('panel_mac', mac);
+                    const res = await fetch('/api/panels/connect', { method: 'POST', body: fd });
+                    const data = await res.json();
+                    
+                    if (data.status === 'ok' || data.connected) {
+                        // Reload panels to get updated status from Panel Manager
+                        await loadPanels();
+                        addLog(`${name}: Connected ✓`, 'success');
+                    } else {
+                        addLog(`${name}: Connection failed - ${data.message || 'unknown error'}`, 'error');
+                    }
+                } catch (err) {
+                    console.error('Connect error:', err);
+                    addLog(`Connect failed: ${err.message}`, 'error');
+                }
+            }
+        }
+        
+        async function setPanelRotation(mac, rotation) {
+            console.log('setPanelRotation called:', mac, rotation);
+            const panel = panels.find(p => p.mac === mac);
+            const name = panel ? panel.name : mac;
+            const rotationDeg = parseInt(rotation) * 90;
+            
+            addLog(`${name}: Setting rotation to ${rotationDeg}°...`, 'info');
+            
+            try {
+                const fd = new FormData();
+                fd.append('rotation', rotation);
+                const res = await fetch(`/api/panels/${encodeURIComponent(mac)}/rotation`, { method: 'POST', body: fd });
+                const data = await res.json();
+                
+                if (data.status === 'ok') {
+                    // Reload panels to get updated status
+                    await loadPanels();
+                    addLog(`${name}: Rotation ${rotationDeg}° ✓`, 'success');
+                } else {
+                    addLog(`${name}: Rotation command not acknowledged`, 'warning');
+                }
+            } catch (err) {
+                console.error('Rotation error:', err);
+                addLog(`${name}: Rotation failed - ${err.message}`, 'error');
+            }
+        }
+        
+        async function setPanelBrightness(mac, value) {
+            const panel = panels.find(p => p.mac === mac);
+            const name = panel ? panel.name : mac;
+            
+            try {
+                const fd = new FormData();
+                fd.append('brightness', value);
+                const res = await fetch(`/api/panels/${encodeURIComponent(mac)}/brightness`, { method: 'POST', body: fd });
+                const data = await res.json();
+                
+                if (data.status === 'ok') {
+                    // Reload panels to get updated status
+                    await loadPanels();
+                    addLog(`${name}: Brightness ${value}% ✓`, 'success');
+                } else {
+                    addLog(`${name}: Brightness not acknowledged`, 'warning');
+                }
+            } catch (err) {
+                console.error('Brightness error:', err);
+                addLog(`${name}: Brightness failed - ${err.message}`, 'error');
+            }
+        }
+        
+        async function scanPanels() {
+            const btn = document.getElementById('btn-scan');
+            const status = document.getElementById('scan-status');
+            const text = document.getElementById('scan-status-text');
+            
+            btn.disabled = true; status.classList.add('active'); text.textContent = 'Scanning...';
+            
+            try {
+                const res = await fetch('/api/panels/scan', { method: 'POST' });
+                const data = await res.json();
+                text.textContent = `✓ Found ${data.found}, ${data.added} new`;
+                await loadPanels();
+                setTimeout(() => status.classList.remove('active'), 3000);
+            } catch (err) {
+                text.textContent = '✗ Scan failed';
+                setTimeout(() => status.classList.remove('active'), 3000);
+            }
+            btn.disabled = false;
+        }
+        
+        function openRenameModal(mac, name) {
+            document.getElementById('rename-mac').value = mac;
+            document.getElementById('rename-input').value = name;
+            document.getElementById('rename-modal').classList.add('active');
+            document.getElementById('rename-input').focus();
+        }
+        
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+        
+        async function submitRename() {
+            const mac = document.getElementById('rename-mac').value;
+            const name = document.getElementById('rename-input').value.trim();
+            if (!name) return;
+            const fd = new FormData(); fd.append('name', name);
+            await fetch(`/api/panels/${mac}/rename`, { method: 'POST', body: fd });
+            closeModal('rename-modal');
+            await loadPanels();
+        }
+        
+        async function identifyPanel(mac, number) {
+            identifyingMac = mac;
+            const panel = panels.find(p => p.mac === mac);
+            document.getElementById('identify-number').textContent = number;
+            document.getElementById('identify-name').textContent = panel ? panel.name : mac;
+            document.getElementById('identify-overlay').classList.add('active');
+            renderPanels();
+            
+            try {
+                const fd = new FormData(); fd.append('panel_mac', mac); fd.append('number', number);
+                await fetch('/api/panels/identify', { method: 'POST', body: fd });
+            } catch (err) { console.error(err); }
+        }
+        
+        async function stopIdentify() {
+            const mac = identifyingMac;
+            identifyingMac = null;
+            document.getElementById('identify-overlay').classList.remove('active');
+            renderPanels();
+            
+            // Send blank/black screen to restore panel
+            if (mac) {
+                try {
+                    const fd = new FormData();
+                    fd.append('panel_mac', mac);
+                    await fetch('/api/panels/clear', { method: 'POST', body: fd });
+                } catch (err) { console.error(err); }
+            }
+        }
+        
+        // Images
+        async function loadImages() {
+            try {
+                const res = await fetch('/api/images');
+                const data = await res.json();
+                images = data.images;
+                renderImages();
+            } catch (err) { console.error(err); }
+        }
+        
+        function renderImages() {
+            const grid = document.getElementById('image-grid');
+            grid.innerHTML = images.map(img => `
+                <div class="image-card ${selectedImage === img.path ? 'selected' : ''} ${img.is_gif ? 'gif' : ''}" data-path="${img.path}" data-animated="${img.is_animated}">
+                    <img src="${img.path}" alt="${img.name}" loading="lazy">
+                    <span class="image-name">${img.name}</span>
+                    ${img.folder !== 'examples' ? '<button class="image-delete">×</button>' : ''}
+                </div>
+            `).join('');
+            
+            grid.querySelectorAll('.image-card').forEach(el => {
+                el.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('image-delete')) return;
+                    selectedImage = el.dataset.path;
+                    selectedImageData = images.find(i => i.path === selectedImage);
+                    renderImages(); renderIpixelGifs(); updateButtons(); updateImagePreview(); updateGridPreview();
+                });
+            });
+            
+            grid.querySelectorAll('.image-delete').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    const path = btn.closest('.image-card').dataset.path;
+                    const parts = path.replace('/assets/', '').split('/');
+                    if (confirm('Delete this image?')) {
+                        await fetch(`/api/images/${parts[0]}/${parts[1]}`, { method: 'DELETE' });
+                        if (selectedImage === path) { selectedImage = null; selectedImageData = null; }
+                        await loadImages();
+                        updateImagePreview();
+                    }
+                });
+            });
+        }
+        
+        // iPixel GIFs
+        async function loadIpixelGifs() {
+            try {
+                const res = await fetch('/api/ipixel-gifs');
+                const data = await res.json();
+                ipixelGifs = data.gifs || [];
+                ipixelCategories = data.categories || [];
+                document.getElementById('ipixel-count').textContent = `${ipixelGifs.length} GIFs`;
+                renderIpixelGifs();
+            } catch (err) { 
+                console.error('Failed to load iPixel GIFs:', err);
+            }
+        }
+        
+        function toggleIpixelSection() {
+            ipixelExpanded = !ipixelExpanded;
+            document.getElementById('ipixel-content').style.display = ipixelExpanded ? 'block' : 'none';
+            document.getElementById('ipixel-toggle').classList.toggle('open', ipixelExpanded);
+        }
+        
+        function filterIpixelCategory(category) {
+            ipixelSelectedCategory = category;
+            renderIpixelGifs();
+        }
+        
+        function renderIpixelGifs() {
+            // Render categories
+            const catContainer = document.getElementById('ipixel-categories');
+            const allCategories = ['all', ...ipixelCategories.filter(c => c !== 'general')];
+            catContainer.innerHTML = allCategories.map(cat => `
+                <button class="ipixel-category ${ipixelSelectedCategory === cat ? 'active' : ''}" 
+                        onclick="filterIpixelCategory('${cat}')">${cat}</button>
+            `).join('');
+            
+            // Filter and render GIFs
+            const filteredGifs = ipixelSelectedCategory === 'all' 
+                ? ipixelGifs 
+                : ipixelGifs.filter(g => g.category === ipixelSelectedCategory);
+            
+            const grid = document.getElementById('ipixel-grid');
+            grid.innerHTML = filteredGifs.map(gif => `
+                <div class="image-card ${selectedImage === gif.path ? 'selected' : ''} ${gif.is_gif ? 'gif' : ''}" 
+                     data-path="${gif.path}" data-animated="true" data-ipixel="true">
+                    <img src="${gif.path}" alt="${gif.name}" loading="lazy">
+                    <span class="image-name">${gif.name.substring(0, 15)}${gif.name.length > 15 ? '...' : ''}</span>
+                </div>
+            `).join('');
+            
+            // Add click handlers
+            grid.querySelectorAll('.image-card').forEach(el => {
+                el.addEventListener('click', () => {
+                    selectedImage = el.dataset.path;
+                    selectedImageData = { 
+                        path: el.dataset.path, 
+                        is_gif: el.classList.contains('gif'),
+                        is_animated: true,
+                        name: el.querySelector('.image-name').textContent
+                    };
+                    renderImages();
+                    renderIpixelGifs();
+                    updateButtons();
+                    updateIpixelPreview();
+                    updateGridPreview();
+                });
+            });
+        }
+        
+        function updateIpixelPreview() {
+            const img = document.getElementById('image-preview');
+            const previewSection = document.getElementById('image-preview-section');
+            
+            if (selectedImage && selectedImage.includes('ipixel_gifs')) {
+                // For iPixel GIFs, show directly (they're already optimized for LED panels)
+                img.src = `${selectedImage}?_=${Date.now()}`;
+                previewSection.style.display = 'flex';
+            }
+        }
+        
+        function updateImagePreview() {
+            const img = document.getElementById('image-preview');
+            const previewSection = document.getElementById('image-preview-section');
+            
+            if (selectedImage) {
+                // Check if it's an iPixel GIF
+                if (selectedImage.includes('ipixel_gifs')) {
+                    img.src = `${selectedImage}?_=${Date.now()}`;
+                    previewSection.style.display = 'flex';
+                    return;
+                }
+                
+                const isAnimated = selectedImageData?.is_animated;
+                const animParam = isAnimated ? '&animated=true' : '';
+                // Use LED-style rendering for realistic panel preview
+                img.src = `/api/images/${selectedImage.replace('/assets/', '')}/preview?led_style=true${animParam}&_=${Date.now()}`;
+                previewSection.style.display = 'flex';
+            } else {
+                img.src = '';
+                previewSection.style.display = 'none';
+            }
+        }
+        
+        function updateButtons() {
+            document.getElementById('btn-send-single').disabled = !selectedPanel || !selectedImage;
+            document.getElementById('btn-send-all').disabled = !selectedImage;
+            
+            // Show info for GIFs
+            const isGif = selectedImageData?.is_gif || selectedImage?.endsWith('.gif');
+            const gifInfo = document.getElementById('gif-info');
+            if (gifInfo) {
+                if (isGif) {
+                    gifInfo.style.display = 'block';
+                    gifInfo.textContent = '🎬 Animated GIF - will play on panel!';
+                    gifInfo.style.color = '#4ade80';  // Green color
+                } else {
+                    gifInfo.style.display = 'none';
+                }
+            }
+            
+            const assigned = Object.values(gridAssignments).filter(v => v).length;
+            document.getElementById('btn-send-grid-arr').disabled = assigned === 0 || !selectedImage;
+        }
+        
+        // Fonts
+        async function loadFonts() {
+            try {
+                const res = await fetch('/api/fonts');
+                const data = await res.json();
+                customFonts = data.fonts || [];
+                updateFontSelect();
+            } catch (err) { customFonts = []; }
+        }
+        
+        function updateFontSelect() {
+            const group = document.getElementById('custom-fonts-group');
+            group.innerHTML = '';
+            customFonts.forEach(f => {
+                const opt = document.createElement('option');
+                opt.value = f;
+                opt.textContent = f.replace(/\.(ttf|otf)$/i, '');
+                group.appendChild(opt);
+            });
+        }
+        
+        function handleFontChange() {
+            const sel = document.getElementById('text-font');
+            if (sel.value === '__upload__') {
+                document.getElementById('font-upload').click();
+                sel.value = 'default';
+            } else {
+                updateTextPreview();
+            }
+        }
+        
+        async function uploadFont(input) {
+            if (!input.files.length) return;
+            const file = input.files[0];
+            const fd = new FormData();
+            fd.append('file', file);
+            
+            try {
+                await fetch('/api/fonts/upload', { method: 'POST', body: fd });
+                await loadFonts();
+                document.getElementById('text-font').value = file.name;
+                updateTextPreview();
+            } catch (err) { console.error(err); }
+            input.value = '';
+        }
+        
+        // Text Preview with auto-sizing
+        // Use server-side preview for accurate rendering
+        let textPreviewTimeout = null;
+        
+        function updateTextPreview() {
+            // Debounce to avoid too many requests
+            if (textPreviewTimeout) clearTimeout(textPreviewTimeout);
+            textPreviewTimeout = setTimeout(fetchTextPreview, 150);
+        }
+        
+        async function fetchTextPreview() {
+            const text = document.getElementById('text-input').value || 'ABC';
+            const color = document.getElementById('text-color').value;
+            const bgColor = document.getElementById('text-bg').value;
+            const fontName = document.getElementById('text-font').value;
+            const style = document.getElementById('text-style').value;
+            const size = document.getElementById('text-size')?.value || '24';
+            
+            // Show loading state briefly
+            const canvas = document.getElementById('text-preview-canvas');
+            const ctx = canvas.getContext('2d');
+            
+            try {
+                const fd = new FormData();
+                fd.append('text', text);
+                fd.append('color', color);
+                fd.append('bg_color', bgColor);
+                fd.append('font_name', fontName);
+                fd.append('font_style', style);
+                fd.append('font_size', size);
+                
+                const res = await fetch('/api/text/preview', { method: 'POST', body: fd });
+                const blob = await res.blob();
+                const img = new window.Image();
+                img.onload = () => {
+                    ctx.drawImage(img, 0, 0, 32, 32);
+                    URL.revokeObjectURL(img.src);
+                };
+                img.src = URL.createObjectURL(blob);
+            } catch (err) {
+                // Fallback to local rendering
+                renderTextLocally(ctx, text, color, bgColor, fontName, style, parseInt(size));
+            }
+        }
+        
+        function renderTextLocally(ctx, text, color, bgColor, fontName, style, fontSize) {
+            const bold = style.includes('bold');
+            const italic = style.includes('italic');
+            
+            ctx.fillStyle = bgColor;
+            ctx.fillRect(0, 0, 32, 32);
+            
+            let fontFamily = 'Arial, sans-serif';
+            if (fontName !== 'default' && fontName !== 'dotmatrix') {
+                fontFamily = `"${fontName}", sans-serif`;
+            }
+            
+            const lines = text.split('\n');
+            let currentSize = fontSize;
+            let fits = false;
+            
+            while (currentSize >= 6 && !fits) {
+                let fontStr = '';
+                if (italic) fontStr += 'italic ';
+                if (bold) fontStr += 'bold ';
+                ctx.font = `${fontStr}${currentSize}px ${fontFamily}`;
+                
+                let maxWidth = 0;
+                let totalHeight = 0;
+                const lineHeight = currentSize * 1.15;
+                
+                for (const line of lines) {
+                    const metrics = ctx.measureText(line || ' ');
+                    maxWidth = Math.max(maxWidth, metrics.width);
+                    totalHeight += lineHeight;
+                }
+                
+                if (maxWidth <= 30 && totalHeight <= 30) {
+                    fits = true;
+                } else {
+                    currentSize -= 1;
+                }
+            }
+            
+            ctx.fillStyle = color;
+            const lineHeight = currentSize * 1.15;
+            const totalHeight = lines.length * lineHeight;
+            let y = (32 - totalHeight) / 2 + fontSize * 0.85;
+            
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'alphabetic';
+            
+            for (const line of lines) {
+                ctx.fillText(line, 16, y);
+                y += lineHeight;
+            }
+        }
+        
+        function drawDotMatrix(ctx, text, color) {
+            const patterns = {
+                'A': ['01110','10001','10001','11111','10001','10001','10001'],
+                'B': ['11110','10001','10001','11110','10001','10001','11110'],
+                'C': ['01110','10001','10000','10000','10000','10001','01110'],
+                'D': ['11110','10001','10001','10001','10001','10001','11110'],
+                'E': ['11111','10000','10000','11110','10000','10000','11111'],
+                'F': ['11111','10000','10000','11110','10000','10000','10000'],
+                'G': ['01110','10001','10000','10111','10001','10001','01110'],
+                'H': ['10001','10001','10001','11111','10001','10001','10001'],
+                'I': ['01110','00100','00100','00100','00100','00100','01110'],
+                'J': ['00111','00010','00010','00010','10010','10010','01100'],
+                'K': ['10001','10010','10100','11000','10100','10010','10001'],
+                'L': ['10000','10000','10000','10000','10000','10000','11111'],
+                'M': ['10001','11011','10101','10101','10001','10001','10001'],
+                'N': ['10001','11001','10101','10011','10001','10001','10001'],
+                'O': ['01110','10001','10001','10001','10001','10001','01110'],
+                'P': ['11110','10001','10001','11110','10000','10000','10000'],
+                'R': ['11110','10001','10001','11110','10100','10010','10001'],
+                'S': ['01110','10001','10000','01110','00001','10001','01110'],
+                'T': ['11111','00100','00100','00100','00100','00100','00100'],
+                'U': ['10001','10001','10001','10001','10001','10001','01110'],
+                'V': ['10001','10001','10001','10001','01010','01010','00100'],
+                'W': ['10001','10001','10001','10101','10101','11011','10001'],
+                'X': ['10001','10001','01010','00100','01010','10001','10001'],
+                'Y': ['10001','10001','01010','00100','00100','00100','00100'],
+                'Z': ['11111','00001','00010','00100','01000','10000','11111'],
+                '0': ['01110','10001','10011','10101','11001','10001','01110'],
+                '1': ['00100','01100','00100','00100','00100','00100','01110'],
+                '2': ['01110','10001','00001','00110','01000','10000','11111'],
+                '3': ['01110','10001','00001','00110','00001','10001','01110'],
+                '4': ['00010','00110','01010','10010','11111','00010','00010'],
+                '5': ['11111','10000','11110','00001','00001','10001','01110'],
+                '6': ['01110','10000','10000','11110','10001','10001','01110'],
+                '7': ['11111','00001','00010','00100','01000','01000','01000'],
+                '8': ['01110','10001','10001','01110','10001','10001','01110'],
+                '9': ['01110','10001','10001','01111','00001','00001','01110'],
+                ' ': ['00000','00000','00000','00000','00000','00000','00000'],
+            };
+            
+            text = text.toUpperCase();
+            const charW = 5, charH = 7, spacing = 1;
+            
+            // Auto-size for dot matrix
+            const lines = text.split('\n');
+            const maxLineLen = Math.max(...lines.map(l => l.length));
+            const lineWidth = maxLineLen * (charW + spacing) - spacing;
+            const totalH = lines.length * (charH + 2);
+            
+            let scale = Math.min((30 / lineWidth), (30 / totalH));
+            scale = Math.max(1, Math.floor(scale));
+            
+            const scaledLineH = (charH + 2) * scale;
+            const startY = Math.floor((32 - lines.length * scaledLineH) / 2);
+            
+            ctx.fillStyle = color;
+            
+            let y = startY;
+            for (const line of lines) {
+                const lineW = line.length * (charW + spacing) * scale - spacing * scale;
+                let x = Math.floor((32 - lineW) / 2);
+                
+                for (const char of line) {
+                    const pattern = patterns[char] || patterns[' '];
+                    for (let row = 0; row < 7; row++) {
+                        for (let col = 0; col < 5; col++) {
+                            if (pattern[row]?.[col] === '1') {
+                                ctx.fillRect(x + col * scale, y + row * scale, scale, scale);
+                            }
+                        }
+                    }
+                    x += (charW + spacing) * scale;
+                }
+                y += scaledLineH;
+            }
+        }
+        
+        // Grid
+        function updateGridSize() {
+            gridCols = Math.max(1, Math.min(4, parseInt(document.getElementById('grid-cols').value) || 2));
+            gridRows = Math.max(1, Math.min(4, parseInt(document.getElementById('grid-rows').value) || 2));
+            document.getElementById('grid-cols').value = gridCols;
+            document.getElementById('grid-rows').value = gridRows;
+            
+            // Update preview size - each panel is a square (80x80)
+            const cellSize = 80;
+            const width = gridCols * cellSize;
+            const height = gridRows * cellSize;
+            document.getElementById('grid-preview-img').style.width = width + 'px';
+            document.getElementById('grid-preview-img').style.height = height + 'px';
+            
+            renderGridOverlay();
+            renderDragItems();
+            updateGridPreview();
+        }
+        
+        function renderGridOverlay() {
+            const overlay = document.getElementById('grid-overlay');
+            overlay.style.gridTemplateColumns = `repeat(${gridCols}, 1fr)`;
+            overlay.style.gridTemplateRows = `repeat(${gridRows}, 1fr)`;
+            
+            let html = '';
+            for (let row = 0; row < gridRows; row++) {
+                for (let col = 0; col < gridCols; col++) {
+                    const pos = `${col}-${row}`;
+                    const mac = gridAssignments[pos];
+                    const panel = mac ? panels.find(p => p.mac === mac) : null;
+                    const idx = panel ? panels.indexOf(panel) + 1 : '';
+                    
+                    html += `<div class="grid-overlay-cell ${mac ? 'assigned' : ''}" data-pos="${pos}"
+                                 ondrop="dropPanel(event)" ondragover="allowDrop(event)" ondragleave="leaveDrop(event)"
+                                 onclick="removeFromGrid('${pos}')">
+                        ${mac ? `<span class="cell-num">${idx}</span><span class="cell-label">${panel?.name || ''}</span>` : ''}
+                    </div>`;
+                }
+            }
+            overlay.innerHTML = html;
+        }
+        
+        function renderDragItems() {
+            const container = document.getElementById('drag-items');
+            const assignedMacs = new Set(Object.values(gridAssignments).filter(v => v));
+            
+            container.innerHTML = panels.filter(p => p.enabled).map((p, i) => `
+                <div class="drag-item ${assignedMacs.has(p.mac) ? 'used' : ''}" 
+                     draggable="${assignedMacs.has(p.mac) ? 'false' : 'true'}"
+                     data-mac="${p.mac}" ondragstart="dragStart(event)" ontouchstart="touchStart(event)">
+                    <span class="num">${i + 1}</span>
+                    <span>${p.name}</span>
+                </div>
+            `).join('') || '<div style="color:var(--text-dim);text-align:center;padding:1rem;">No panels available</div>';
+            updateButtons();
+        }
+        
+        function dragStart(e) { 
+            e.dataTransfer.setData('text/plain', e.target.dataset.mac); 
+            e.target.classList.add('dragging'); 
+        }
+        function allowDrop(e) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
+        function leaveDrop(e) { e.currentTarget.classList.remove('drag-over'); }
+        
+        function dropPanel(e) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-over');
+            const mac = e.dataTransfer.getData('text/plain');
+            const pos = e.currentTarget.dataset.pos;
+            if (mac && !Object.values(gridAssignments).includes(mac)) {
+                gridAssignments[pos] = mac;
+                renderGridOverlay(); renderDragItems(); updateGridPreview();
+            }
+            document.querySelectorAll('.dragging').forEach(el => el.classList.remove('dragging'));
+        }
+        
+        function removeFromGrid(pos) { 
+            if (gridAssignments[pos]) {
+                delete gridAssignments[pos]; 
+                renderGridOverlay(); 
+                renderDragItems(); 
+                updateGridPreview(); 
+            }
+        }
+        
+        function updateGridPreview() {
+            const img = document.getElementById('grid-preview-img');
+            if (selectedImage) {
+                const path = selectedImage.replace('/assets/', '');
+                img.src = `/api/grid-preview?image_path=${encodeURIComponent(path)}&cols=${gridCols}&rows=${gridRows}&_=${Date.now()}`;
+            } else {
+                img.src = `/api/grid-preview?cols=${gridCols}&rows=${gridRows}&_=${Date.now()}`;
+            }
+        }
+        
+        // Touch support for drag
+        let touchDragMac = null;
+        function touchStart(e) {
+            touchDragMac = e.currentTarget.dataset.mac;
+        }
+        
+        // Emoji
+        const emojiCategories = {
+            smileys: '😀😃😄😁😆😅🤣😂🙂🙃😉😊😇🥰😍🤩😘😗☺😚😙🥲😋😛😜🤪😝🤑🤗🤭🤫🤔🤐🤨😐😑😶😏😒🙄😬🤥😌😔😪🤤😴😷🤒🤕🤢🤮🤧🥵🥶🥴😵🤯🤠🥳🥸😎🤓🧐😕😟🙁☹😮😯😲😳🥺😦😧😨😰😥😢😭😱😖😣😞😓😩😫🥱😤😡😠🤬😈👿💀☠💩🤡👹👺👻👽👾🤖',
+            people: '👋🤚🖐✋🖖👌🤌🤏✌🤞🤟🤘🤙👈👉👆🖕👇☝👍👎✊👊🤛🤜👏🙌👐🤲🤝🙏✍💅🤳💪🦾🦿🦵🦶👂🦻👃🧠🫀🫁🦷🦴👀👁👅👄👶🧒👦👧🧑👱👨🧔👩🧓👴👵🙍🙎🙅🙆💁🙋🧏🙇🤦🤷',
+            animals: '🐵🐒🦍🦧🐶🐕🦮🐩🐺🦊🦝🐱🐈🦁🐯🐅🐆🐴🐎🦄🦓🦌🦬🐮🐂🐃🐄🐷🐖🐗🐽🐏🐑🐐🐪🐫🦙🦒🐘🦣🦏🦛🐭🐁🐀🐹🐰🐇🐿🦫🦔🦇🐻🐨🐼🦥🦦🦨🦘🦡🐾🦃🐔🐓🐣🐤🐥🐦🐧🕊🦅🦆🦢🦉🦩🦚🦜🐸🐊🐢🦎🐍🐲🐉🦕🦖🐳🐋🐬🦭🐟🐠🐡🦈🐙🐚🦋🐛🐜🐝🐞🦗🕷🦂',
+            food: '🍇🍈🍉🍊🍋🍌🍍🥭🍎🍏🍐🍑🍒🍓🫐🥝🍅🫒🥥🥑🍆🥔🥕🌽🌶🫑🥒🥬🥦🧄🧅🍄🥜🌰🍞🥐🥖🥨🥯🥞🧇🧀🍖🍗🥩🥓🍔🍟🍕🌭🥪🌮🌯🥙🧆🥚🍳🥘🍲🥣🥗🍿🧈🍱🍘🍙🍚🍛🍜🍝🍠🍢🍣🍤🍥🥮🍡🥟🥠🥡🦀🦞🦐🦑🍦🍧🍨🍩🍪🎂🍰🧁🥧🍫🍬🍭🍮🍯🍼🥛☕🍵🍶🍾🍷🍸🍹🍺🍻🥂🥃🥤',
+            activities: '⚽🏀🏈⚾🥎🎾🏐🏉🥏🎱🏓🏸🏒🏑🥍🏏🥅⛳🏹🎣🥊🥋🎽🛹⛸🥌🎿⛷🏂🏋🤼🤸⛹🏊🚣🧗🚵🚴🏆🥇🥈🥉🏅🎖🏵🎗🎫🎪🤹🎭🎨🎬🎤🎧🎼🎹🥁🎷🎺🎸🎻🎲♟🎯🎳🎮🎰🧩',
+            travel: '🚗🚕🚙🚌🚎🏎🚓🚑🚒🚐🛻🚚🚛🚜🏍🛵🚲🛴🚨🚔🚍🚘🚖🚡🚠🚟🚃🚋🚞🚝🚄🚅🚈🚂🚆🚇🚊🚉✈🛫🛬🛩💺🛰🚀🛸🚁🛶⛵🚤🛥🛳⛴🚢⛽🚧🚦🚥🗺🗿🗽🗼🏰🏯🏟🎡🎢⛲🏖🏝🏜🌋⛰🏔🗻🏕🏠🏡🏢🏬🏣🏤🏥🏦🏨🏪🏫🏩💒🏛⛪🕌🛕⛩',
+            objects: '⌚📱💻⌨🖥🖨🖱💽💾💿📀📷📹🎥📽📞📟📠📺📻🎙⏱⏲⏰🔋🔌💡🔦🕯💸💵💴💶💷💰💳🔧🔨⚒🛠🔩⚙🔫💣🔪🗡⚔🛡🚬⚰💊💉🩸🧬🦠🧪🌡🧹🧺🚽🚰🧼🔑🗝🚪🛋🛏🧸🖼🛒🎁🎈🎏🎀🎊🎉✉📩📨📧💌📦📪📫📬📭📮📯📜📃📄📊📈📉📆📅📇📋📁📂📰📓📕📗📘📙📚🔖📎📐📏✂🖊🖋✒🖌🖍📝✏🔍🔎🔏🔐🔒🔓',
+            symbols: '❤🧡💛💚💙💜🖤🤍🤎💔❣💕💞💓💗💖💘💝💟☮✝☪🕉☸✡🔯🕎☯☦🛐⛎♈♉♊♋♌♍♎♏♐♑♒♓🆔⚛☢☣📴📳🈶🈚🈸🈺🈷✴🆚💮🉐㊙㊗🈴🈵🈹🈲🅰🅱🆎🆑🅾🆘❌⭕🛑⛔📛🚫💯💢♨🚷🚯🚳🚱🔞📵🚭❗❕❓❔‼⁉🔅🔆〽⚠🚸🔱⚜🔰♻✅🈯💹❇✳❎🌐💠Ⓜ🌀💤🏧🚾♿🅿🛗🈳🈂🚹🚺🚼🚻🎦📶🔣🔤🔡🔠🆖🆗🆙🆒🆕🆓▶⏸⏹⏺⏭⏮⏩⏪◀🔼🔽➡⬅⬆⬇↗↘↙↖↕↔🔀🔁🔂🔄🎵🎶➕➖➗✖💲💱™©®🔴🟠🟡🟢🔵🟣⚫⚪🟤🔺🔻🔸🔹🔶🔷▪▫◾◽🔳🔲🔈🔇🔉🔊🔔🔕📣📢💬💭🗯♠♣♥♦🃏🎴🀄',
+            flags: '🏳🏴🏴‍☠️🏁🚩🎌🏳️‍🌈🇺🇳🇦🇫🇦🇱🇩🇿🇦🇸🇦🇩🇦🇴🇦🇬🇦🇷🇦🇲🇦🇺🇦🇹🇦🇿🇧🇸🇧🇭🇧🇩🇧🇧🇧🇾🇧🇪🇧🇿🇧🇯🇧🇹🇧🇴🇧🇦🇧🇼🇧🇷🇧🇳🇧🇬🇧🇫🇰🇭🇨🇲🇨🇦🇨🇻🇨🇫🇹🇩🇨🇱🇨🇳🇨🇴🇨🇷🇭🇷🇨🇺🇨🇾🇨🇿🇩🇰🇩🇴🇪🇨🇪🇬🇸🇻🇪🇪🇪🇹🇫🇮🇫🇷🇬🇪🇩🇪🇬🇭🇬🇷🇬🇹🇭🇹🇭🇳🇭🇰🇭🇺🇮🇸🇮🇳🇮🇩🇮🇷🇮🇶🇮🇪🇮🇱🇮🇹🇯🇲🇯🇵🇯🇴🇰🇿🇰🇪🇰🇼🇱🇻🇱🇧🇱🇾🇱🇹🇱🇺🇲🇾🇲🇻🇲🇽🇲🇦🇲🇲🇳🇱🇳🇿🇳🇬🇰🇵🇳🇴🇵🇰🇵🇦🇵🇪🇵🇭🇵🇱🇵🇹🇵🇷🇶🇦🇷🇴🇷🇺🇸🇦🇷🇸🇸🇬🇸🇰🇸🇮🇿🇦🇰🇷🇪🇸🇱🇰🇸🇪🇨🇭🇸🇾🇹🇼🇹🇭🇹🇷🇺🇦🇦🇪🇬🇧🇺🇸🇺🇾🇻🇪🇻🇳'
+        };
+        
+        let currentEmojiCat = 'smileys';
+        
+        function showEmojiCat(cat, btn) {
+            currentEmojiCat = cat;
+            document.querySelectorAll('.emoji-cat-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderEmojiGrid();
+        }
+        
+        function renderEmojiGrid() {
+            const grid = document.getElementById('emoji-grid');
+            const emojis = [...emojiCategories[currentEmojiCat]];
+            grid.innerHTML = emojis.map(e => 
+                `<button class="emoji-btn" onclick="insertEmoji('${e}')">${e}</button>`
+            ).join('');
+        }
+        
+        function insertEmoji(emoji) {
+            const input = document.getElementById('text-input');
+            const start = input.selectionStart;
+            const end = input.selectionEnd;
+            const text = input.value;
+            input.value = text.slice(0, start) + emoji + text.slice(end);
+            input.selectionStart = input.selectionEnd = start + emoji.length;
+            input.focus();
+            updateTextPreview();
+        }
+        
+        // Send functions
+        async function sendImage(mode) {
+            if (!selectedImage) return;
+            
+            document.getElementById('loading').classList.add('active');
+            
+            const fd = new FormData();
+            
+            // Check if it's an iPixel GIF (from /static/ipixel_gifs/)
+            if (selectedImage.includes('ipixel_gifs')) {
+                // For iPixel GIFs, fetch the image and send as base64
+                try {
+                    const response = await fetch(selectedImage);
+                    const blob = await response.blob();
+                    const base64 = await new Promise(resolve => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => resolve(reader.result.split(',')[1]);
+                        reader.readAsDataURL(blob);
+                    });
+                    
+                    fd.append('image_data', base64);
+                    fd.append('filename', selectedImage.split('/').pop());
+                    
+                    // Use /api/send/base64 for single, /api/send/base64/all for all panels
+                    if (mode === 'single') {
+                        fd.append('panel_mac', selectedPanel);
+                        await fetch('/api/send/base64', { method: 'POST', body: fd });
+                    } else {
+                        await fetch('/api/send/base64/all', { method: 'POST', body: fd });
+                    }
+                } catch (err) {
+                    console.error('Failed to send iPixel GIF:', err);
+                    addLog('Failed to send iPixel GIF: ' + err.message, 'error');
+                }
+            } else {
+                // Regular image from /assets/
+                fd.append('image_path', selectedImage.replace('/assets/', ''));
+                
+                let endpoint = '/api/send/' + (mode === 'single' ? 'single' : 'all');
+                if (mode === 'single') fd.append('panel_mac', selectedPanel);
+                
+                try { await fetch(endpoint, { method: 'POST', body: fd }); } catch (err) {}
+            }
+            
+            document.getElementById('loading').classList.remove('active');
+        }
+        
+        async function sendText(mode) {
+            const text = document.getElementById('text-input').value.trim();
+            if (!text) return;
+            
+            document.getElementById('loading-text').classList.add('active');
+            
+            const fd = new FormData();
+            fd.append('text', text);
+            fd.append('color', document.getElementById('text-color').value);
+            fd.append('bg_color', document.getElementById('text-bg').value);
+            fd.append('font_name', document.getElementById('text-font').value);
+            fd.append('font_style', document.getElementById('text-style').value);
+            fd.append('font_size', document.getElementById('text-size')?.value || '24');
+            
+            let endpoint = '/api/send/' + (mode === 'single' ? 'single' : mode === 'grid' ? 'grid' : 'all');
+            if (mode === 'single') {
+                if (!selectedPanel) { alert('Select a panel first'); document.getElementById('loading-text').classList.remove('active'); return; }
+                fd.append('panel_mac', selectedPanel);
+            }
+            
+            try { await fetch(endpoint, { method: 'POST', body: fd }); } catch (err) {}
+            document.getElementById('loading-text').classList.remove('active');
+        }
+        
+        async function sendGridArranged() { 
+            if (!selectedImage) return; 
+            document.getElementById('loading').classList.add('active');
+            
+            const fd = new FormData();
+            fd.append('image_path', selectedImage.replace('/assets/', ''));
+            
+            try { await fetch('/api/send/grid', { method: 'POST', body: fd }); } catch (err) {}
+            document.getElementById('loading').classList.remove('active');
+        }
+        
+        // Files
+        async function handleFiles(files) {
+            for (const file of files) {
+                const fd = new FormData(); fd.append('file', file);
+                await fetch('/api/images/upload', { method: 'POST', body: fd });
+            }
+            await loadImages();
+        }
+        
+        // Logs
+        async function pollLogs() {
+            try {
+                const res = await fetch('/api/logs');
+                const data = await res.json();
+                logs = data.logs;
+                renderLogs();
+            } catch (err) {}
+            setTimeout(pollLogs, 2000);
+        }
+        
+        function renderLogs() {
+            const content = document.getElementById('log-content');
+            const wasAtBottom = content.scrollHeight - content.scrollTop <= content.clientHeight + 50;
+            content.innerHTML = logs.map(log => `
+                <div class="log-entry ${log.level}">
+                    <span class="time">${log.time}</span>
+                    <span class="msg">${log.message}</span>
+                </div>
+            `).join('');
+            if (wasAtBottom) content.scrollTop = content.scrollHeight;
+        }
+        
+        function clearLogs() { logs = []; renderLogs(); }
+        
+        function addLog(message, level = 'info') {
+            const now = new Date();
+            const time = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            logs.push({ time, message, level });
+            // Keep only last 100 logs
+            if (logs.length > 100) logs = logs.slice(-100);
+            renderLogs();
+        }
+        
+        // Event Listeners
+        function setupEventListeners() {
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    tab.classList.add('active');
+                    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+                    if (tab.dataset.tab === 'grid') { updateGridSize(); updateGridPreview(); }
+                    if (tab.dataset.tab === 'text') updateTextPreview();
+                });
+            });
+            
+            const uploadZone = document.getElementById('upload-zone');
+            const fileInput = document.getElementById('file-input');
+            uploadZone.addEventListener('click', () => fileInput.click());
+            uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.style.borderColor = 'var(--accent)'; });
+            uploadZone.addEventListener('dragleave', () => uploadZone.style.borderColor = '');
+            uploadZone.addEventListener('drop', e => { e.preventDefault(); uploadZone.style.borderColor = ''; handleFiles(e.dataTransfer.files); });
+            fileInput.addEventListener('change', () => handleFiles(fileInput.files));
+            
+            document.getElementById('btn-send-single').addEventListener('click', () => sendImage('single'));
+            document.getElementById('btn-send-all').addEventListener('click', () => sendImage('all'));
+            
+            document.getElementById('rename-input').addEventListener('keydown', e => {
+                if (e.key === 'Enter') submitRename();
+                if (e.key === 'Escape') closeModal('rename-modal');
+            });
+        }
+        
+        // Giphy Integration (Coming Soon - disabled)
+        function showGiphyPicker() { /* Coming soon */ }
+        function closeGiphyPicker() { /* Coming soon */ }
+        function loadTrendingGifs() { /* Coming soon */ }
+        function searchGiphy() { /* Coming soon */ }
+        function fetchGifs() { /* Coming soon */ }
+        function loadMoreGifs() { /* Coming soon */ }
+        function selectGiphyGif() { /* Coming soon */ }
+        
+        // =================================================================
+        // 🚦 MATRIX - Dutch Highway Signs (Easter Egg)
+        // =================================================================
+        
+        let matrixClickCount = 0;
+        let matrixClickTimer = null;
+        let selectedMatrixSign = null;
+        let matrixImageData = null;
+        
+        // Easter egg: 5 clicks within 3 seconds reveals Matrix tab
+        document.getElementById('secret-trigger')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            matrixClickCount++;
+            
+            if (matrixClickTimer) clearTimeout(matrixClickTimer);
+            matrixClickTimer = setTimeout(() => { matrixClickCount = 0; }, 3000);
+            
+            if (matrixClickCount >= 5) {
+                matrixClickCount = 0;
+                clearTimeout(matrixClickTimer);
+                revealMatrixTab();
+            }
+        });
+        
+        function revealMatrixTab() {
+            const matrixTab = document.getElementById('matrix-tab-btn');
+            if (matrixTab && !matrixTab.classList.contains('revealed')) {
+                matrixTab.classList.add('revealed');
+                initMatrixSigns();
+            }
+        }
+        
+        // Matrix sign definitions - Dutch highway matrix boards (Rijstrooksignalering)
+        const MATRIX_SIGNS = {
+            speeds: [
+                { id: 'speed-50', label: '50', value: 50, hasRing: false },
+                { id: 'speed-70', label: '70', value: 70, hasRing: false },
+                { id: 'speed-80', label: '80', value: 80, hasRing: false },
+                { id: 'speed-90', label: '90', value: 90, hasRing: false },
+                { id: 'speed-100', label: '100', value: 100, hasRing: true },
+                { id: 'speed-110', label: '110', value: 110, hasRing: true },
+                { id: 'speed-120', label: '120', value: 120, hasRing: true },
+                { id: 'speed-130', label: '130', value: 130, hasRing: true },
+            ],
+            lanes: [
+                { id: 'lane-open', label: 'Vrij', type: 'arrow-down', color: '#00ff00' },
+                { id: 'lane-closed', label: 'Dicht', type: 'cross', color: '#ff0000' },
+                { id: 'lane-left', label: 'Links', type: 'arrow-left', color: '#ffffff' },
+                { id: 'lane-right', label: 'Rechts', type: 'arrow-right', color: '#ffffff' },
+                { id: 'lane-end', label: 'Einde', type: 'end-limit', color: '#ffffff' },
+            ],
+            warnings: [
+                { id: 'blank', label: 'Uit', type: 'blank', color: '#000000' },
+            ]
+        };
+        
+        // AID Flasher state (Automatische Incident Detectie)
+        let flasherEnabled = false;
+        let flasherState = 0; // 0 = off, 1 = bottom pair, 2 = top pair
+        let flasherInterval = null;
+        
+        // Draw matrix sign for 32x32 LED panels
+        function drawMatrixSign(ctx, sign, size, withFlashers = false, flasherPhase = 0) {
+            const s = size;
+            ctx.imageSmoothingEnabled = false;
+            
+            // Black background
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, s, s);
+            
+            const scale = s / 32;
+            const cx = s / 2;
+            const cy = s / 2;
+            
+            // Draw corner flashers (AID) if enabled - 5px diameter, 1px from edges
+            if (withFlashers) {
+                const lampR = Math.round(2.5 * scale);
+                const lampOff = Math.round(1 * scale) + lampR;
+                const bottomOn = flasherPhase === 1;
+                const topOn = flasherPhase === 2;
+                
+                [[lampOff, s - lampOff, bottomOn], [s - lampOff, s - lampOff, bottomOn],
+                 [lampOff, lampOff, topOn], [s - lampOff, lampOff, topOn]].forEach(([x, y, on]) => {
+                    ctx.fillStyle = on ? '#ffaa00' : '#221100';
+                    ctx.beginPath();
+                    ctx.arc(x, y, lampR, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+            }
+            
+            // ========== SPEED SIGNS ==========
+            if (sign.value !== undefined) {
+                // Red ring for 100+ speeds
+                if (sign.hasRing) {
+                    ctx.strokeStyle = '#ff0000';
+                    ctx.lineWidth = Math.round(2 * scale);
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, Math.round(13 * scale), 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+                
+                // White speed number
+                ctx.fillStyle = '#ffffff';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                
+                if (sign.value >= 100) {
+                    ctx.font = `bold ${Math.round(12 * scale)}px Arial`;
+                } else {
+                    ctx.font = `bold ${Math.round(18 * scale)}px Arial`;
+                }
+                ctx.fillText(sign.value.toString(), cx, cy + scale);
+                return;
+            }
+            
+            // ========== LANE SIGNALS ==========
+            ctx.fillStyle = sign.color;
+            ctx.strokeStyle = sign.color;
+            
+            switch (sign.type) {
+                case 'arrow-down':
+                    // GREEN arrow pointing DOWN (rijstrook vrij)
+                    ctx.fillRect(Math.round(cx - 2 * scale), Math.round(4 * scale), Math.round(4 * scale), Math.round(14 * scale));
+                    ctx.beginPath();
+                    ctx.moveTo(Math.round(cx - 10 * scale), Math.round(16 * scale));
+                    ctx.lineTo(cx, Math.round(28 * scale));
+                    ctx.lineTo(Math.round(cx + 10 * scale), Math.round(16 * scale));
+                    ctx.closePath();
+                    ctx.fill();
+                    break;
+                    
+                case 'cross':
+                    // RED X (andreaskruis - rijstrook gesloten)
+                    ctx.lineWidth = Math.round(4 * scale);
+                    ctx.lineCap = 'round';
+                    ctx.beginPath();
+                    ctx.moveTo(Math.round(5 * scale), Math.round(5 * scale));
+                    ctx.lineTo(Math.round(27 * scale), Math.round(27 * scale));
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(Math.round(27 * scale), Math.round(5 * scale));
+                    ctx.lineTo(Math.round(5 * scale), Math.round(27 * scale));
+                    ctx.stroke();
+                    break;
+                    
+                case 'arrow-left':
+                    // WHITE diagonal arrow pointing DOWN-LEFT (verdrijfpijl links)
+                    ctx.lineWidth = Math.round(3 * scale);
+                    ctx.lineCap = 'round';
+                    ctx.beginPath();
+                    ctx.moveTo(Math.round(24 * scale), Math.round(6 * scale));
+                    ctx.lineTo(Math.round(12 * scale), Math.round(18 * scale));
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(Math.round(4 * scale), Math.round(16 * scale));
+                    ctx.lineTo(Math.round(8 * scale), Math.round(28 * scale));
+                    ctx.lineTo(Math.round(18 * scale), Math.round(20 * scale));
+                    ctx.closePath();
+                    ctx.fill();
+                    break;
+                    
+                case 'arrow-right':
+                    // WHITE diagonal arrow pointing DOWN-RIGHT (verdrijfpijl rechts)
+                    ctx.lineWidth = Math.round(3 * scale);
+                    ctx.lineCap = 'round';
+                    ctx.beginPath();
+                    ctx.moveTo(Math.round(8 * scale), Math.round(6 * scale));
+                    ctx.lineTo(Math.round(20 * scale), Math.round(18 * scale));
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(Math.round(28 * scale), Math.round(16 * scale));
+                    ctx.lineTo(Math.round(24 * scale), Math.round(28 * scale));
+                    ctx.lineTo(Math.round(14 * scale), Math.round(20 * scale));
+                    ctx.closePath();
+                    ctx.fill();
+                    break;
+                    
+                case 'end-limit':
+                    // White circle with diagonal line (einde beperking)
+                    ctx.strokeStyle = sign.color;
+                    ctx.lineWidth = Math.round(2 * scale);
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, Math.round(12 * scale), 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(Math.round(8 * scale), Math.round(24 * scale));
+                    ctx.lineTo(Math.round(24 * scale), Math.round(8 * scale));
+                    ctx.stroke();
+                    break;
+                    
+                case 'blank':
+                    // Just black - panel off
+                    break;
+            }
+        }
+        
+        function initMatrixSigns() {
+            // Initialize speed signs
+            const speedsContainer = document.getElementById('matrix-speeds');
+            if (speedsContainer) {
+                speedsContainer.innerHTML = '';
+                MATRIX_SIGNS.speeds.forEach(sign => {
+                    const item = createMatrixItem(sign);
+                    speedsContainer.appendChild(item);
+                });
+            }
+            
+            // Initialize lane signals
+            const lanesContainer = document.getElementById('matrix-lanes');
+            if (lanesContainer) {
+                lanesContainer.innerHTML = '';
+                MATRIX_SIGNS.lanes.forEach(sign => {
+                    const item = createMatrixItem(sign);
+                    lanesContainer.appendChild(item);
+                });
+            }
+            
+            // Initialize warnings
+            const warningsContainer = document.getElementById('matrix-warnings');
+            if (warningsContainer) {
+                warningsContainer.innerHTML = '';
+                MATRIX_SIGNS.warnings.forEach(sign => {
+                    const item = createMatrixItem(sign);
+                    warningsContainer.appendChild(item);
+                });
+            }
+        }
+        
+        function createMatrixItem(sign) {
+            const item = document.createElement('div');
+            item.className = 'matrix-item';
+            item.dataset.signId = sign.id;
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = 32;
+            canvas.height = 32;
+            canvas.style.width = '64px';
+            canvas.style.height = '64px';
+            
+            const ctx = canvas.getContext('2d');
+            drawMatrixSign(ctx, sign, 32, false, 0); // No flashers in grid items
+            
+            const label = document.createElement('div');
+            label.className = 'matrix-item-label';
+            label.textContent = sign.label;
+            
+            item.appendChild(canvas);
+            item.appendChild(label);
+            
+            item.addEventListener('click', () => selectMatrixSign(sign, item));
+            
+            return item;
+        }
+        
+        function selectMatrixSign(sign, itemElement) {
+            // Deselect previous
+            document.querySelectorAll('.matrix-item').forEach(el => el.classList.remove('selected'));
+            
+            // Select new
+            itemElement.classList.add('selected');
+            selectedMatrixSign = sign;
+            
+            // Update preview
+            updateMatrixPreview();
+        }
+        
+        function updateMatrixPreview() {
+            if (!selectedMatrixSign) return;
+            
+            const previewCanvas = document.getElementById('matrix-preview-canvas');
+            if (previewCanvas) {
+                const ctx = previewCanvas.getContext('2d');
+                ctx.imageSmoothingEnabled = false;
+                
+                // Draw at 32x32 then scale
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = 32;
+                tempCanvas.height = 32;
+                const tempCtx = tempCanvas.getContext('2d');
+                drawMatrixSign(tempCtx, selectedMatrixSign, 32, flasherEnabled, flasherState);
+                
+                // Scale up to preview size
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(0, 0, 128, 128);
+                ctx.drawImage(tempCanvas, 0, 0, 128, 128);
+                
+                // Store image data for sending (current frame)
+                matrixImageData = tempCanvas.toDataURL('image/png');
+            }
+        }
+        
+        // AID Flasher timing (Dutch specification):
+        // - Top lights ON: 600ms
+        // - Bottom lights ON: 600ms
+        // - All lights OFF: 800ms
+        // - Total cycle: 2000ms
+        const AID_TOP_DURATION = 600;
+        const AID_BOTTOM_DURATION = 600;
+        const AID_OFF_DURATION = 800;
+        
+        function toggleFlashers(enabled) {
+            flasherEnabled = enabled;
+            
+            if (flasherInterval) {
+                clearInterval(flasherInterval);
+                flasherInterval = null;
+            }
+            
+            if (enabled) {
+                // Start AID flasher animation with correct Dutch timing
+                // Phase 1: Top pair (600ms) -> Phase 2: Bottom pair (600ms) -> Phase 3: Off (800ms)
+                flasherState = 2;  // Start with top pair (phase 2 = top)
+                updateMatrixPreview();
+                
+                let phase = 0;
+                const runPhase = () => {
+                    phase = (phase + 1) % 3;
+                    if (phase === 0) {
+                        flasherState = 2;  // Top pair ON
+                        flasherInterval = setTimeout(runPhase, AID_TOP_DURATION);
+                    } else if (phase === 1) {
+                        flasherState = 1;  // Bottom pair ON
+                        flasherInterval = setTimeout(runPhase, AID_BOTTOM_DURATION);
+                    } else {
+                        flasherState = 0;  // All OFF
+                        flasherInterval = setTimeout(runPhase, AID_OFF_DURATION);
+                    }
+                    updateMatrixPreview();
+                };
+                flasherInterval = setTimeout(runPhase, AID_TOP_DURATION);
+            } else {
+                flasherState = 0;
+                updateMatrixPreview();
+            }
+        }
+        
+        // Create animated GIF for matrix with AID flashers
+        // Dutch AID timing: Top 600ms -> Bottom 600ms -> Off 800ms
+        async function createFlasherGif() {
+            if (!selectedMatrixSign) return null;
+            
+            const size = 32;
+            
+            // Frame 1: Top flashers ON (600ms)
+            const canvas1 = document.createElement('canvas');
+            canvas1.width = size;
+            canvas1.height = size;
+            drawMatrixSign(canvas1.getContext('2d'), selectedMatrixSign, size, true, 2);  // 2 = top
+            const frame1 = canvas1.toDataURL('image/png');
+            
+            // Frame 2: Bottom flashers ON (600ms)
+            const canvas2 = document.createElement('canvas');
+            canvas2.width = size;
+            canvas2.height = size;
+            drawMatrixSign(canvas2.getContext('2d'), selectedMatrixSign, size, true, 1);  // 1 = bottom
+            const frame2 = canvas2.toDataURL('image/png');
+            
+            // Frame 3: All flashers OFF (800ms)
+            const canvas3 = document.createElement('canvas');
+            canvas3.width = size;
+            canvas3.height = size;
+            drawMatrixSign(canvas3.getContext('2d'), selectedMatrixSign, size, true, 0);  // 0 = off
+            const frame3 = canvas3.toDataURL('image/png');
+            
+            // Send frames to server with individual durations
+            const response = await fetch('/api/matrix/create-gif', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    frames: [frame1, frame2, frame3],
+                    durations: [AID_TOP_DURATION, AID_BOTTOM_DURATION, AID_OFF_DURATION]  // Different duration per frame
+                })
+            });
+            
+            if (response.ok) {
+                const blob = await response.blob();
+                return blob;
+            }
+            return null;
+        }
+        
+        async function sendMatrixToPanel() {
+            if (!selectedMatrixSign || !matrixImageData) {
+                alert('Select a matrix sign first');
+                return;
+            }
+            if (!selectedPanel) {
+                alert('Select a panel first');
+                return;
+            }
+            
+            document.getElementById('loading')?.classList.add('active');
+            addLog('Preparing matrix sign...', 'info');
+            
+            try {
+                // If flashers are enabled, send as animated GIF
+                if (flasherEnabled) {
+                    addLog('Creating AID flasher GIF (3 frames)...', 'info');
+                    const gifBlob = await createFlasherGif();
+                    if (gifBlob) {
+                        // Convert blob to base64
+                        const reader = new FileReader();
+                        const base64Promise = new Promise((resolve) => {
+                            reader.onloadend = () => resolve(reader.result);
+                            reader.readAsDataURL(gifBlob);
+                        });
+                        const gifBase64 = await base64Promise;
+                        
+                        // Send as base64 with .gif filename hint
+                        const fd = new FormData();
+                        fd.append('image_data', gifBase64);
+                        fd.append('filename', 'matrix_flashers.gif');
+                        fd.append('panel_mac', selectedPanel);
+                        
+                        addLog('Sending AID flasher GIF to panel...', 'info');
+                        const res = await fetch('/api/send/base64', { method: 'POST', body: fd });
+                        if (res.ok) {
+                            addLog('✓ AID flasher GIF sent!', 'success');
+                        } else {
+                            addLog('✗ Failed to send GIF', 'error');
+                        }
+                    }
+                } else {
+                    const fd = new FormData();
+                    fd.append('image_data', matrixImageData);
+                    fd.append('panel_mac', selectedPanel);
+                    await fetch('/api/send/base64', { method: 'POST', body: fd });
+                    addLog('✓ Matrix sign sent!', 'success');
+                }
+            } catch (err) {
+                console.error('Matrix send error:', err);
+                addLog('✗ Matrix send error: ' + err.message, 'error');
+            }
+            
+            document.getElementById('loading')?.classList.remove('active');
+        }
+        
+        async function sendMatrixToAll() {
+            if (!selectedMatrixSign || !matrixImageData) {
+                alert('Select a matrix sign first');
+                return;
+            }
+            
+            document.getElementById('loading')?.classList.add('active');
+            addLog('Preparing matrix sign for all panels...', 'info');
+            
+            try {
+                // If flashers are enabled, send as animated GIF
+                if (flasherEnabled) {
+                    addLog('Creating AID flasher GIF...', 'info');
+                    const gifBlob = await createFlasherGif();
+                    if (gifBlob) {
+                        // Convert blob to base64
+                        const reader = new FileReader();
+                        const base64Promise = new Promise((resolve) => {
+                            reader.onloadend = () => resolve(reader.result);
+                            reader.readAsDataURL(gifBlob);
+                        });
+                        const gifBase64 = await base64Promise;
+                        
+                        const fd = new FormData();
+                        fd.append('image_data', gifBase64);
+                        fd.append('filename', 'matrix_flashers.gif');
+                        
+                        addLog('Sending AID flasher GIF to all panels...', 'info');
+                        await fetch('/api/send/base64/all', { method: 'POST', body: fd });
+                    }
+                } else {
+                    const fd = new FormData();
+                    fd.append('image_data', matrixImageData);
+                    await fetch('/api/send/base64/all', { method: 'POST', body: fd });
+                }
+                addLog('✓ Matrix sign sent to all!', 'success');
+            } catch (err) {
+                console.error('Matrix send error:', err);
+                addLog('✗ Matrix send error: ' + err.message, 'error');
+            }
+            
+            document.getElementById('loading')?.classList.remove('active');
+        }
+        
+        // Init
+        init();
+    </script>
+</body>
+</html>

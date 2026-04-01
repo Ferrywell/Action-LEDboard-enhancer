@@ -1,0 +1,2 @@
+# Dev / CI: protocol unit tests (no BLE hardware)
+pytest>=7.0

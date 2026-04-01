@@ -1,0 +1,14 @@
+---
+description: Agent workflow — assignments file + STATUS for Action-LEDboard-enhancer
+globs:
+alwaysApply: true
+---
+
+# Agent workflow
+
+1. **Start:** Read your assignment in `management/assignments/` — Agent 1: `agent-1-ios.md`, Agent 2: `agent-2-ble-protocol.md`, Agent 3: `agent-3-micro-display-ux.md`, Agent 4: `agent-4-qa-release.md`. Execute only **« Huidige opdracht (lead) »** in that file.
+2. **End:** Fill **« Rapport (agent) »** in the same file. Update `management/STATUS.md` in your section (dated bullet, files touched, blockers).
+3. If blocked, add **Blockers / beslissing lead** in `STATUS.md` with file paths.
+4. Optional long write-up: `management/log/YYYY-MM-DD-<topic>.md` and one line in `STATUS.md`.
+
+Do not rely on chat-only summaries. Reference docs: `docs/reference/`. iOS: `ios/`. BLE tools: `tools/ble/`.

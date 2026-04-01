@@ -1,0 +1,1995 @@
+#!/usr/bin/env python3
+"""
+Panel Hopper - Web Server
+
+A minimalist FastAPI web interface for managing LED panels,
+uploading images, and controlling displays.
+
+Run with: python web/server.py
+Or: uvicorn web.server:app --reload
+"""
+
+import asyncio
+import json
+import os
+import shutil
+import sys
+from collections import deque
+from dataclasses import asdict
+from datetime import datetime
+from io import BytesIO
+from pathlib import Path
+from typing import Optional, Dict, List
+
+from fastapi import FastAPI, File, HTTPException, UploadFile, Form, WebSocket, BackgroundTasks
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
+from PIL import Image, ImageDraw, ImageFont
+import uvicorn
+import urllib.request
+import urllib.parse
+
+# Giphy API key (free tier)
+GIPHY_API_KEY = "dc6zaTOxFJmzC"  # Public beta key
+
+# Add src to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "vendor"))
+
+from panel_hopper.manager import get_manager, PanelManager
+from panel_hopper.core import PanelController, scan_for_panels, setup_logging
+from panel_hopper.config import load_config, save_config, Panel
+from panel_hopper.graphics import (
+    resize_for_panel,
+    resize_for_grid,
+    split_for_grid,
+    create_text_image,
+    create_dot_matrix_text,
+    to_png_bytes,
+    PANEL_SIZE,
+    GRID_SIZE,
+    GRID_POSITIONS,
+)
+
+# =============================================================================
+# Configuration
+# =============================================================================
+
+# Paths
+BASE_DIR = Path(__file__).parent.parent
+ASSETS_DIR = BASE_DIR / "assets"
+EXAMPLES_DIR = ASSETS_DIR / "examples"
+UPLOADS_DIR = ASSETS_DIR / "uploads"
+FONTS_DIR = ASSETS_DIR / "fonts"
+GIFS_DIR = ASSETS_DIR / "gifs"
+STATIC_DIR = Path(__file__).parent / "static"
+
+# Ensure directories exist
+ASSETS_DIR.mkdir(exist_ok=True)
+EXAMPLES_DIR.mkdir(exist_ok=True)
+UPLOADS_DIR.mkdir(exist_ok=True)
+FONTS_DIR.mkdir(exist_ok=True)
+GIFS_DIR.mkdir(exist_ok=True)
+
+SUPPORTED_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'}
+FONT_EXTENSIONS = {'.ttf', '.otf'}
+
+# Live log buffer
+LOG_BUFFER = deque(maxlen=100)
+
+# Global brightness (0.0 - 1.0)
+GLOBAL_BRIGHTNESS = 1.0
+
+
+
+def add_log(message: str, level: str = "info"):
+    """Add a message to the log buffer."""
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    LOG_BUFFER.append({
+        "time": timestamp,
+        "level": level,
+        "message": message
+    })
+
+
+def render_led_style(img: Image.Image, scale: int = 6) -> Image.Image:
+    """
+    Render an image with realistic LED pixel effect.
+    Each pixel becomes a rounded LED with gaps between them.
+    
+    Args:
+        img: Source image (typically 32x32)
+        scale: Scale factor per pixel (default 6 = 192x192 output for 32x32 input)
+    
+    Returns:
+        LED-style rendered image
+    """
+    w, h = img.size
+    gap = 1  # Gap between LEDs
+    led_size = scale - gap  # LED diameter
+    
+    # Create output image with dark background
+    out_w = w * scale
+    out_h = h * scale
+    output = Image.new('RGB', (out_w, out_h), (8, 8, 12))
+    draw = ImageDraw.Draw(output)
+    
+    # Render each pixel as a rounded LED
+    for y in range(h):
+        for x in range(w):
+            color = img.getpixel((x, y))
+            
+            # Calculate LED position (centered in cell)
+            cx = x * scale + scale // 2
+            cy = y * scale + scale // 2
+            
+            # LED bounds
+            x0 = cx - led_size // 2
+            y0 = cy - led_size // 2
+            x1 = x0 + led_size - 1
+            y1 = y0 + led_size - 1
+            
+            if color == (0, 0, 0) or (isinstance(color, tuple) and sum(color[:3]) < 10):
+                # Off pixel - subtle dark LED shape
+                draw.ellipse([x0, y0, x1, y1], fill=(12, 12, 18))
+            else:
+                # Lit pixel - draw LED with slight glow effect
+                # Outer glow (subtle)
+                glow_color = tuple(max(0, c // 4) for c in color[:3])
+                draw.ellipse([x0-1, y0-1, x1+1, y1+1], fill=glow_color)
+                # Main LED
+                draw.ellipse([x0, y0, x1, y1], fill=color[:3] if len(color) > 3 else color)
+    
+    return output
+
+
+# =============================================================================
+# FastAPI App
+# =============================================================================
+
+app = FastAPI(
+    title="Panel Hopper",
+    description="BLE LED Panel Controller",
+    version="1.0.0"
+)
+
+# CORS for development
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# =============================================================================
+# Startup/Shutdown Events
+# =============================================================================
+
+@app.on_event("startup")
+async def startup_event():
+    """Start the connection monitor when the app starts."""
+    manager = get_manager()
+    await manager.start_monitoring()
+    add_log("Connection monitor started", "info")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Stop the connection monitor when the app shuts down."""
+    manager = get_manager()
+    await manager.stop_monitoring()
+    add_log("Connection monitor stopped", "info")
+
+
+# =============================================================================
+# Static Files & Frontend
+# =============================================================================
+
+@app.get("/", response_class=HTMLResponse)
+async def get_frontend():
+    """Serve the main HTML page."""
+    html_path = STATIC_DIR / "index.html"
+    if html_path.exists():
+        return HTMLResponse(html_path.read_text(encoding='utf-8'))
+    
+    # Fallback: try parent web folder
+    alt_path = Path(__file__).parent / "static" / "index.html"
+    if alt_path.exists():
+        return HTMLResponse(alt_path.read_text(encoding='utf-8'))
+    
+    return HTMLResponse("<h1>Frontend not found. Place index.html in web/static/</h1>")
+
+
+# Serve static files
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+
+# =============================================================================
+# Image Endpoints
+# =============================================================================
+
+@app.get("/api/images")
+async def list_images():
+    """List all available images."""
+    images = []
+    
+    for folder in [EXAMPLES_DIR, UPLOADS_DIR, GIFS_DIR]:
+        if not folder.exists():
+            continue
+        
+        for file in sorted(folder.iterdir()):
+            if file.is_file() and file.suffix.lower() in SUPPORTED_EXTENSIONS:
+                try:
+                    with Image.open(file) as img:
+                        w, h = img.size
+                        is_animated = getattr(img, 'is_animated', False) if file.suffix.lower() == '.gif' else False
+                        n_frames = getattr(img, 'n_frames', 1) if is_animated else 1
+                except:
+                    w, h = 0, 0
+                    is_animated = False
+                    n_frames = 1
+                
+                images.append({
+                    "name": file.name,
+                    "path": f"/assets/{file.parent.name}/{file.name}",
+                    "folder": file.parent.name,
+                    "width": w,
+                    "height": h,
+                    "is_gif": file.suffix.lower() == '.gif',
+                    "is_animated": is_animated,
+                    "frames": n_frames,
+                })
+    
+    return {"images": images}
+
+
+# iPixel GIFs Directory
+IPIXEL_GIFS_DIR = STATIC_DIR / "ipixel_gifs"
+
+
+@app.get("/api/ipixel-gifs")
+async def list_ipixel_gifs():
+    """
+    List all iPixel GIFs extracted from the iPixel app.
+    These are pre-made animations that work great on LED panels.
+    """
+    gifs = []
+    
+    if not IPIXEL_GIFS_DIR.exists():
+        return {"categories": [], "gifs": []}
+    
+    # Get categories (subdirectories)
+    categories = []
+    for item in sorted(IPIXEL_GIFS_DIR.iterdir()):
+        if item.is_dir():
+            categories.append(item.name)
+            # Get GIFs in category
+            for file in sorted(item.iterdir()):
+                if file.suffix.lower() in ['.gif', '.jpg', '.png']:
+                    gifs.append({
+                        "name": file.name,
+                        "path": f"/static/ipixel_gifs/{item.name}/{file.name}",
+                        "category": item.name,
+                        "is_gif": file.suffix.lower() == '.gif',
+                    })
+    
+    # Get root-level GIFs
+    for file in sorted(IPIXEL_GIFS_DIR.iterdir()):
+        if file.is_file() and file.suffix.lower() in ['.gif', '.jpg', '.png']:
+            gifs.append({
+                "name": file.name,
+                "path": f"/static/ipixel_gifs/{file.name}",
+                "category": "general",
+                "is_gif": file.suffix.lower() == '.gif',
+            })
+    
+    return {"categories": ["general"] + categories, "gifs": gifs}
+
+
+@app.get("/assets/{folder}/{filename}")
+async def get_asset(folder: str, filename: str):
+    """Serve an asset file."""
+    file_path = ASSETS_DIR / folder / filename
+    if not file_path.exists():
+        raise HTTPException(404, "File not found")
+    return FileResponse(file_path)
+
+
+@app.get("/api/images/{folder}/{filename}/preview")
+async def get_image_preview(folder: str, filename: str, size: int = 32, grid: bool = False, animated: bool = False, led_style: bool = False):
+    """Get a preview of an image, optionally as grid layout, animated GIF, or LED-style rendering."""
+    file_path = ASSETS_DIR / folder / filename
+    if not file_path.exists():
+        raise HTTPException(404, "File not found")
+    
+    # For animated GIF preview, return the resized GIF with all frames
+    if animated and filename.lower().endswith('.gif'):
+        try:
+            frames = []
+            durations = []
+            with Image.open(file_path) as gif:
+                # Check if animated
+                if not getattr(gif, 'is_animated', False):
+                    animated = False
+                else:
+                    canvas = Image.new('RGB', gif.size, (0, 0, 0))
+                    try:
+                        while True:
+                            if gif.mode == 'P':
+                                frame = gif.convert('RGBA')
+                            elif gif.mode == 'RGBA':
+                                frame = gif.copy()
+                            else:
+                                frame = gif.convert('RGB')
+                            
+                            if frame.mode == 'RGBA':
+                                canvas.paste(frame, (0, 0), frame)
+                                rgb_frame = canvas.copy()
+                            else:
+                                rgb_frame = frame
+                            
+                            resized = rgb_frame.resize((size, size), Image.Resampling.NEAREST)
+                            
+                            # Apply brightness
+                            if GLOBAL_BRIGHTNESS < 1.0:
+                                from PIL import ImageEnhance
+                                enhancer = ImageEnhance.Brightness(resized)
+                                resized = enhancer.enhance(GLOBAL_BRIGHTNESS)
+                            
+                            frames.append(resized)
+                            durations.append(gif.info.get('duration', 100))
+                            gif.seek(gif.tell() + 1)
+                    except EOFError:
+                        pass
+            
+            if frames:
+                buf = BytesIO()
+                frames[0].save(
+                    buf, 
+                    format='GIF', 
+                    save_all=True, 
+                    append_images=frames[1:], 
+                    duration=durations, 
+                    loop=0
+                )
+                buf.seek(0)
+                return StreamingResponse(buf, media_type="image/gif")
+        except Exception as e:
+            pass  # Fall back to static preview
+    
+    # Static preview
+    with Image.open(file_path) as src:
+        if src.mode == 'P':
+            img = src.convert('RGBA').convert('RGB')
+        elif src.mode != 'RGB':
+            img = src.convert('RGB')
+        else:
+            img = src.copy()
+    
+    if grid:
+        img = resize_for_grid(file_path)
+    else:
+        img = img.resize((PANEL_SIZE, PANEL_SIZE), Image.Resampling.NEAREST)
+    
+    # Apply brightness
+    if GLOBAL_BRIGHTNESS < 1.0:
+        from PIL import ImageEnhance
+        enhancer = ImageEnhance.Brightness(img)
+        img = enhancer.enhance(GLOBAL_BRIGHTNESS)
+    
+    # Apply LED-style rendering if requested
+    if led_style and not grid:
+        # Render with realistic LED pixel effect
+        img = render_led_style(img, scale=6)  # 32x32 -> 192x192
+    elif size != PANEL_SIZE and not grid:
+        img = img.resize((size, size), Image.Resampling.NEAREST)
+    
+    buf = BytesIO()
+    img.save(buf, format='PNG')
+    buf.seek(0)
+    
+    return StreamingResponse(buf, media_type="image/png")
+
+
+@app.post("/api/images/upload")
+async def upload_image(file: UploadFile = File(...)):
+    """Upload a new image."""
+    if not file.filename:
+        raise HTTPException(400, "No filename")
+    
+    ext = Path(file.filename).suffix.lower()
+    if ext not in SUPPORTED_EXTENSIONS:
+        raise HTTPException(400, f"Unsupported format. Use: {SUPPORTED_EXTENSIONS}")
+    
+    # Put GIFs in separate folder
+    dest_folder = GIFS_DIR if ext == '.gif' else UPLOADS_DIR
+    dest = dest_folder / file.filename
+    with open(dest, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+    
+    add_log(f"Uploaded: {file.filename}", "success")
+    return {"status": "ok", "filename": file.filename}
+
+
+@app.delete("/api/images/{folder}/{filename}")
+async def delete_image(folder: str, filename: str):
+    """Delete an image."""
+    if folder == "examples":
+        raise HTTPException(400, "Cannot delete example images")
+    
+    file_path = ASSETS_DIR / folder / filename
+    if not file_path.exists():
+        raise HTTPException(404, "File not found")
+    
+    file_path.unlink()
+    add_log(f"Deleted: {filename}", "info")
+    return {"status": "ok"}
+
+
+# =============================================================================
+# Brightness Endpoints
+# =============================================================================
+
+@app.get("/api/brightness")
+async def get_brightness():
+    """Get current brightness."""
+    return {"brightness": GLOBAL_BRIGHTNESS}
+
+
+@app.post("/api/brightness")
+async def set_brightness(brightness: float = Form(...), log: bool = Form(False)):
+    """Set global brightness (0.0 - 1.0)."""
+    global GLOBAL_BRIGHTNESS
+    GLOBAL_BRIGHTNESS = max(0.0, min(1.0, brightness))
+    if log:
+        add_log(f"Brightness: {int(GLOBAL_BRIGHTNESS * 100)}%", "info")
+    return {"brightness": GLOBAL_BRIGHTNESS}
+
+
+# =============================================================================
+# Panel Hardware Control Endpoints (discovered via iPixel BLE sniffing)
+# =============================================================================
+
+@app.post("/api/panels/{mac}/brightness")
+async def set_panel_hardware_brightness(mac: str, brightness: int = Form(...)):
+    """
+    Set hardware brightness directly on a panel using Panel Manager.
+    
+    Args:
+        mac: Panel MAC address
+        brightness: Brightness 0-100
+    """
+    mac = mac.upper()
+    config = load_config()
+    
+    if mac not in config.panels:
+        raise HTTPException(404, "Panel not found")
+    
+    panel = config.panels[mac]
+    manager = get_manager()
+    
+    # Auto-connect if not connected
+    if not manager.is_connected(mac):
+        add_log(f"Connecting to {panel.name}...", "info")
+        if not await manager.connect(mac, name=panel.name):
+            add_log(f"{panel.name}: Connection failed", "error")
+            raise HTTPException(500, "Connection failed")
+    
+    success = await manager.set_brightness(mac, brightness)
+    
+    if success:
+        add_log(f"{panel.name}: Brightness {brightness}%", "success")
+        return {"status": "ok", "brightness": brightness}
+    else:
+        add_log(f"{panel.name}: Brightness command failed", "warning")
+        return {"status": "warning", "message": "Command not acknowledged"}
+
+
+@app.post("/api/panels/{mac}/rotation")
+async def set_panel_rotation(mac: str, rotation: int = Form(...)):
+    """
+    Set display rotation on a panel using Panel Manager.
+    
+    Args:
+        mac: Panel MAC address
+        rotation: 0=0°, 1=90°, 2=180°, 3=270°
+    """
+    mac = mac.upper()
+    config = load_config()
+    
+    if mac not in config.panels:
+        raise HTTPException(404, "Panel not found")
+    
+    panel = config.panels[mac]
+    rotation_deg = rotation * 90
+    manager = get_manager()
+    
+    # Auto-connect if not connected
+    if not manager.is_connected(mac):
+        add_log(f"Connecting to {panel.name}...", "info")
+        if not await manager.connect(mac, name=panel.name):
+            add_log(f"{panel.name}: Connection failed", "error")
+            raise HTTPException(500, "Connection failed")
+    
+    success = await manager.set_rotation(mac, rotation)
+    
+    if success:
+        add_log(f"{panel.name}: Rotation {rotation_deg}°", "success")
+        return {"status": "ok", "rotation": rotation}
+    else:
+        add_log(f"{panel.name}: Rotation command failed", "warning")
+        return {"status": "warning", "message": "Command not acknowledged"}
+
+
+@app.post("/api/panels/{mac}/save-startup")
+async def save_panel_startup(mac: str):
+    """
+    Save the currently displayed image as the startup/idle image using Panel Manager.
+    
+    Args:
+        mac: Panel MAC address
+    """
+    mac = mac.upper()
+    config = load_config()
+    
+    if mac not in config.panels:
+        raise HTTPException(404, "Panel not found")
+    
+    panel = config.panels[mac]
+    manager = get_manager()
+    
+    # Auto-connect if not connected
+    if not manager.is_connected(mac):
+        add_log(f"Connecting to {panel.name}...", "info")
+        if not await manager.connect(mac, name=panel.name):
+            add_log(f"{panel.name}: Connection failed", "error")
+            raise HTTPException(500, "Connection failed")
+    
+    success = await manager.save_as_startup(mac)
+    
+    if success:
+        add_log(f"{panel.name}: Startup image saved! ✓", "success")
+        return {"status": "ok", "message": "Startup image saved"}
+    else:
+        add_log(f"{panel.name}: Save command failed", "warning")
+        return {"status": "warning", "message": "Command not acknowledged"}
+
+
+@app.post("/api/panels/{mac}/on-off")
+async def set_panel_on_off(mac: str, on: bool = Form(...)):
+    """
+    Turn panel display on or off using Panel Manager.
+    
+    Based on iPixel sendLedOnOff command.
+    
+    Args:
+        mac: Panel MAC address
+        on: True = on, False = off
+    """
+    config = load_config()
+    mac = mac.upper()
+    
+    panel = config.get_panel_by_mac(mac)
+    if not panel:
+        raise HTTPException(404, f"Panel {mac} not found")
+    
+    manager = get_manager()
+    
+    # Auto-connect if not connected
+    if not manager.is_connected(mac):
+        if not await manager.connect(mac, name=panel.name):
+            raise HTTPException(500, f"Failed to connect to panel")
+    
+    success = await manager.set_on_off(mac, on)
+    
+    state = "on" if on else "off"
+    if success:
+        add_log(f"{panel.name}: Display turned {state}", "success")
+        return {"status": "ok", "on": on}
+    else:
+        add_log(f"{panel.name}: On/Off command failed", "warning")
+        return {"status": "warning", "message": "Command not acknowledged"}
+
+
+@app.post("/api/panels/{mac}/delete-all")
+async def delete_panel_data(mac: str):
+    """
+    Delete all saved data from a panel using Panel Manager.
+    
+    Based on iPixel deleteAllData command.
+    
+    Args:
+        mac: Panel MAC address
+    """
+    config = load_config()
+    mac = mac.upper()
+    
+    panel = config.get_panel_by_mac(mac)
+    if not panel:
+        raise HTTPException(404, f"Panel {mac} not found")
+    
+    manager = get_manager()
+    
+    # Auto-connect if not connected
+    if not manager.is_connected(mac):
+        if not await manager.connect(mac, name=panel.name):
+            raise HTTPException(500, f"Failed to connect to panel")
+    
+    success = await manager.delete_all_data(mac)
+    
+    if success:
+        add_log(f"{panel.name}: All data deleted", "success")
+        return {"status": "ok", "message": "All data deleted"}
+    else:
+        add_log(f"{panel.name}: Delete command failed", "warning")
+        return {"status": "warning", "message": "Command not acknowledged"}
+
+
+@app.post("/api/panels/all/brightness")
+async def set_all_panels_brightness(value: int = Form(...)):
+    """Set hardware brightness on all enabled panels using Panel Manager."""
+    config = load_config()
+    enabled_panels = [p for p in config.panels.values() if p.enabled]
+    
+    if not enabled_panels:
+        raise HTTPException(400, "No panels enabled")
+    
+    manager = get_manager()
+    results = []
+    
+    for panel in enabled_panels:
+        # Auto-connect if not connected
+        if not manager.is_connected(panel.mac):
+            await manager.connect(panel.mac, name=panel.name)
+        
+        success = await manager.set_brightness(panel.mac, value)
+        results.append({"mac": panel.mac, "name": panel.name, "success": success})
+    
+    success_count = sum(1 for r in results if r.get("success"))
+    add_log(f"Brightness {value}% on {success_count}/{len(enabled_panels)} panels", "info")
+    
+    return {"results": results}
+
+
+@app.post("/api/panels/all/rotation")
+async def set_all_panels_rotation(rotation: int = Form(...)):
+    """Set rotation on all enabled panels using Panel Manager."""
+    config = load_config()
+    enabled_panels = [p for p in config.panels.values() if p.enabled]
+    
+    if not enabled_panels:
+        raise HTTPException(400, "No panels enabled")
+    
+    manager = get_manager()
+    results = []
+    
+    for panel in enabled_panels:
+        # Auto-connect if not connected
+        if not manager.is_connected(panel.mac):
+            await manager.connect(panel.mac, name=panel.name)
+        
+        success = await manager.set_rotation(panel.mac, rotation)
+        results.append({"mac": panel.mac, "name": panel.name, "success": success})
+    
+    rotation_deg = rotation * 90
+    success_count = sum(1 for r in results if r.get("success"))
+    add_log(f"Rotation {rotation_deg}° on {success_count}/{len(enabled_panels)} panels", "info")
+    
+    return {"results": results}
+
+
+@app.post("/api/panels/all/save-startup")
+async def save_all_panels_startup():
+    """Save startup image on all enabled panels using Panel Manager."""
+    config = load_config()
+    enabled_panels = [p for p in config.panels.values() if p.enabled]
+    
+    if not enabled_panels:
+        raise HTTPException(400, "No panels enabled")
+    
+    manager = get_manager()
+    results = []
+    
+    for panel in enabled_panels:
+        # Auto-connect if not connected
+        if not manager.is_connected(panel.mac):
+            await manager.connect(panel.mac, name=panel.name)
+        
+        success = await manager.save_as_startup(panel.mac)
+        results.append({"mac": panel.mac, "name": panel.name, "success": success})
+    
+    success_count = sum(1 for r in results if r.get("success"))
+    add_log(f"Startup saved on {success_count}/{len(enabled_panels)} panels", "success")
+    
+    return {"results": results}
+
+
+# =============================================================================
+# Panel Endpoints
+# =============================================================================
+
+@app.get("/api/panels")
+async def list_panels():
+    """List all configured panels with connection status from Panel Manager."""
+    config = load_config()
+    manager = get_manager()
+    
+    panels = []
+    for p in sorted(config.panels.values(), key=lambda x: x.order):
+        status = manager.get_status(p.mac)
+        panels.append({
+            "mac": p.mac,
+            "name": p.name,
+            "enabled": p.enabled,
+            "order": p.order,
+            "grid_position": p.grid_position,
+            "connected": status.get("connected", False) if status else False,
+            "brightness": status.get("brightness", 100) if status else 100,
+            "rotation": status.get("rotation", 0) if status else 0,
+        })
+    
+    grid = {
+        "linksboven": config.grid.linksboven,
+        "rechtsboven": config.grid.rechtsboven,
+        "linksonder": config.grid.linksonder,
+        "rechtsonder": config.grid.rechtsonder,
+    }
+    
+    return {"panels": panels, "grid": grid, "brightness": GLOBAL_BRIGHTNESS}
+
+
+@app.get("/api/panels/status")
+async def get_panels_status():
+    """Get real-time connection status from Panel Manager."""
+    manager = get_manager()
+    return {
+        "connected": manager.list_connected(),
+        "panels": manager.list_panels(),
+        "safe_mode": manager.safe_mode,
+        "adapter_name": manager.adapter_name,
+        "auto_save": manager.auto_save,
+    }
+
+
+@app.post("/api/ble/reset-safe-mode")
+async def reset_safe_mode():
+    """Reset BLE safe mode to try fast mode again."""
+    manager = get_manager()
+    manager.reset_safe_mode()
+    add_log("BLE Safe Mode reset - will try fast mode", "info")
+    return {"success": True}
+
+
+@app.post("/api/settings/auto-save")
+async def set_auto_save(enabled: bool = Form(...)):
+    """Enable/disable auto-save after sending images/GIFs."""
+    manager = get_manager()
+    manager.auto_save = enabled
+    add_log(f"Auto-save {'enabled' if enabled else 'disabled'}", "info")
+    return {"success": True, "auto_save": manager.auto_save}
+
+
+@app.post("/api/panels/scan")
+async def scan_panels_endpoint():
+    """Scan for BLE panels."""
+    add_log("Scanning for panels...", "info")
+    
+    try:
+        discovered = await scan_for_panels(timeout=10.0)
+    except Exception as e:
+        add_log(f"Scan failed: {e}", "error")
+        raise HTTPException(500, str(e))
+    
+    config = load_config()
+    added = 0
+    
+    for mac, name in discovered:
+        if mac not in config.panels:
+            config.add_panel(mac, name)
+            added += 1
+            add_log(f"Found new panel: {name}", "success")
+    
+    if added > 0:
+        save_config(config)
+    
+    add_log(f"Scan complete: {len(discovered)} found, {added} new", "info")
+    
+    return {
+        "found": len(discovered),
+        "added": added,
+        "panels": [{"mac": mac, "name": name} for mac, name in discovered]
+    }
+
+
+@app.post("/api/panels/{mac}/toggle")
+async def toggle_panel(mac: str):
+    """Toggle panel enabled state."""
+    config = load_config()
+    mac = mac.upper()
+    
+    if mac not in config.panels:
+        raise HTTPException(404, "Panel not found")
+    
+    config.panels[mac].enabled = not config.panels[mac].enabled
+    save_config(config)
+    
+    state = "enabled" if config.panels[mac].enabled else "disabled"
+    add_log(f"{config.panels[mac].name}: {state}", "info")
+    
+    return {"status": "ok", "enabled": config.panels[mac].enabled}
+
+
+@app.post("/api/panels/{mac}/disconnect")
+async def disconnect_panel_endpoint(mac: str):
+    """Disconnect a panel's BLE session using Panel Manager."""
+    config = load_config()
+    mac = mac.upper()
+    
+    panel = config.get_panel_by_mac(mac)
+    name = panel.name if panel else mac
+    
+    manager = get_manager()
+    result = await manager.disconnect(mac)
+    
+    add_log(f"{name}: Disconnected", "info")
+    return {"status": "ok", "message": "Disconnected", "connected": False}
+
+
+@app.post("/api/panels/connect")
+async def connect_panel_endpoint(panel_mac: str = Form(...)):
+    """Connect to a panel using Panel Manager."""
+    config = load_config()
+    mac = panel_mac.upper()
+    
+    panel = config.get_panel_by_mac(mac)
+    name = panel.name if panel else mac
+    
+    add_log(f"Connecting to {name}...", "info")
+    
+    manager = get_manager()
+    success = await manager.connect(mac, name=name)
+    
+    if success:
+        add_log(f"{name}: Connected ✓", "success")
+        return {"status": "ok", "connected": True, "message": "Connected"}
+    else:
+        status = manager.get_status(mac)
+        error = status.get('error', 'Connection failed') if status else 'Connection failed'
+        add_log(f"{name}: Connection failed - {error}", "error")
+        return {"status": "error", "connected": False, "message": error}
+
+
+@app.post("/api/panels/{mac}/rename")
+async def rename_panel(mac: str, name: str = Form(...)):
+    """Rename a panel."""
+    config = load_config()
+    mac = mac.upper()
+    
+    if mac not in config.panels:
+        raise HTTPException(404, "Panel not found")
+    
+    old_name = config.panels[mac].name
+    config.panels[mac].name = name
+    save_config(config)
+    
+    add_log(f"Renamed: {old_name} → {name}", "info")
+    return {"status": "ok", "name": name}
+
+
+@app.post("/api/panels/identify")
+async def identify_panel(panel_mac: str = Form(...), number: int = Form(...)):
+    """Send identification number to a panel."""
+    config = load_config()
+    mac = panel_mac.upper()
+    
+    panel = config.get_panel_by_mac(mac)
+    name = panel.name if panel else mac
+    
+    add_log(f"Identifying {name} with #{number}...", "info")
+    
+    # Create image with thin number (bold=False for thinner look)
+    img = create_text_image(str(number), PANEL_SIZE, PANEL_SIZE, '#ff9900', font_size=26, bold=False)
+    png_bytes = to_png_bytes(img)
+    
+    # Apply brightness
+    if GLOBAL_BRIGHTNESS < 1.0:
+        with Image.open(BytesIO(png_bytes)) as im:
+            from PIL import ImageEnhance
+            enhancer = ImageEnhance.Brightness(im)
+            brightened = enhancer.enhance(GLOBAL_BRIGHTNESS)
+            buf = BytesIO()
+            brightened.save(buf, format='PNG')
+            png_bytes = buf.getvalue()
+    
+    # Send to panel
+    controller = PanelController(timeout=15.0, retries=1)
+    success, message = await controller.send_to_panel(mac, png_bytes, name)
+    
+    if success:
+        add_log(f"✓ {name} identified as #{number}", "success")
+        return {"status": "ok", "number": number}
+    else:
+        add_log(f"✗ {name}: {message}", "error")
+        return {"status": "error", "message": message}
+
+
+@app.post("/api/panels/clear")
+async def clear_panel(panel_mac: str = Form(...)):
+    """Send a blank/black screen to a panel."""
+    config = load_config()
+    mac = panel_mac.upper()
+    
+    panel = config.get_panel_by_mac(mac)
+    name = panel.name if panel else mac
+    
+    # Create black image
+    img = Image.new('RGB', (PANEL_SIZE, PANEL_SIZE), (0, 0, 0))
+    png_bytes = to_png_bytes(img)
+    
+    # Send to panel
+    controller = PanelController(timeout=15.0, retries=1)
+    success, message = await controller.send_to_panel(mac, png_bytes, name)
+    
+    if success:
+        add_log(f"✓ {name} cleared", "info")
+        return {"status": "ok"}
+    else:
+        add_log(f"✗ {name}: {message}", "error")
+        return {"status": "error", "message": message}
+
+
+# =============================================================================
+# Emoji Endpoints
+# =============================================================================
+
+@app.post("/api/emoji/render")
+async def render_emoji(
+    emoji: str = Form(...),
+    size: int = Form(24),
+    bg_color: str = Form("#000000"),
+):
+    """Render an emoji to panel image."""
+    try:
+        # Create image with emoji
+        img = Image.new('RGB', (PANEL_SIZE, PANEL_SIZE), bg_color)
+        draw = ImageDraw.Draw(img)
+        
+        # Try to use a font that supports emoji
+        try:
+            # Windows emoji font
+            font = ImageFont.truetype("seguiemj.ttf", size)
+        except:
+            try:
+                # Alternative
+                font = ImageFont.truetype("arial.ttf", size)
+            except:
+                font = ImageFont.load_default()
+        
+        # Center the emoji
+        bbox = draw.textbbox((0, 0), emoji, font=font)
+        w = bbox[2] - bbox[0]
+        h = bbox[3] - bbox[1]
+        x = (PANEL_SIZE - w) // 2
+        y = (PANEL_SIZE - h) // 2
+        
+        draw.text((x, y), emoji, font=font, fill='white')
+        
+        buf = BytesIO()
+        img.save(buf, format='PNG')
+        buf.seek(0)
+        
+        return StreamingResponse(buf, media_type="image/png")
+        
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+# =============================================================================
+# Send Endpoints
+# =============================================================================
+
+@app.post("/api/send/single")
+async def send_to_single(
+    panel_mac: str = Form(...),
+    image_path: Optional[str] = Form(None),
+    text: Optional[str] = Form(None),
+    color: str = Form("#ff9900"),
+    bg_color: str = Form("#000000"),
+    font_name: str = Form("default"),
+    font_size: int = Form(18),
+    font_style: str = Form("regular"),
+):
+    """Send image, GIF, or text to a single panel."""
+    config = load_config()
+    panel = config.get_panel_by_mac(panel_mac)
+    
+    if not panel:
+        raise HTTPException(404, "Panel not found")
+    
+    add_log(f"Sending to {panel.name}...", "info")
+    
+    manager = get_manager()
+    
+    # Auto-connect if not connected
+    if not manager.is_connected(panel.mac):
+        add_log(f"Connecting to {panel.name}...", "info")
+        if not await manager.connect(panel.mac, name=panel.name):
+            add_log(f"{panel.name}: Connection failed", "error")
+            return {"status": "error", "message": "Connection failed"}
+    
+    # Prepare and send content
+    if text:
+        bold = font_style in ['bold', 'bold-italic']
+        italic = font_style in ['italic', 'bold-italic']
+        img = create_multiline_text_image(text, PANEL_SIZE, color, bg_color, font_name, font_size, bold, italic)
+        
+        # Apply brightness
+        if GLOBAL_BRIGHTNESS < 1.0:
+            from PIL import ImageEnhance
+            enhancer = ImageEnhance.Brightness(img)
+            img = enhancer.enhance(GLOBAL_BRIGHTNESS)
+        
+        png_bytes = to_png_bytes(img)
+        success = await manager.send_image(panel.mac, png_bytes)
+        message = "OK" if success else "Send failed"
+        
+    elif image_path:
+        full_path = ASSETS_DIR / image_path.replace("/assets/", "")
+        if not full_path.exists():
+            raise HTTPException(404, "Image not found")
+        
+        # Check if it's an animated GIF
+        is_animated_gif = False
+        if full_path.suffix.lower() == '.gif':
+            with Image.open(full_path) as check_img:
+                is_animated_gif = getattr(check_img, 'is_animated', False)
+        
+        if is_animated_gif:
+            # Send as animated GIF
+            add_log(f"Sending animated GIF to {panel.name}...", "info")
+            with open(full_path, 'rb') as f:
+                gif_bytes = f.read()
+            success = await manager.send_gif(panel.mac, gif_bytes)
+            message = "GIF sent" if success else "GIF send failed"
+        else:
+            # Send as static image
+            img = resize_for_panel(full_path)
+            
+            # Apply brightness
+            if GLOBAL_BRIGHTNESS < 1.0:
+                from PIL import ImageEnhance
+                enhancer = ImageEnhance.Brightness(img)
+                img = enhancer.enhance(GLOBAL_BRIGHTNESS)
+            
+            png_bytes = to_png_bytes(img)
+            success = await manager.send_image(panel.mac, png_bytes)
+            message = "OK" if success else "Send failed"
+    else:
+        raise HTTPException(400, "Provide image_path or text")
+    
+    if success:
+        add_log(f"✓ {panel.name}: sent", "success")
+    else:
+        add_log(f"✗ {panel.name}: {message}", "error")
+    
+    return {"status": "ok" if success else "error", "message": message}
+
+
+@app.post("/api/send/all")
+async def send_to_all(
+    image_path: Optional[str] = Form(None),
+    text: Optional[str] = Form(None),
+    color: str = Form("#ff9900"),
+    bg_color: str = Form("#000000"),
+    font_name: str = Form("default"),
+    font_size: int = Form(18),
+    font_style: str = Form("regular"),
+):
+    """Send to all enabled panels (supports animated GIFs)."""
+    config = load_config()
+    enabled = config.get_enabled_panels()
+    
+    if not enabled:
+        raise HTTPException(400, "No enabled panels")
+    
+    add_log(f"Sending to {len(enabled)} panels...", "info")
+    
+    manager = get_manager()
+    is_animated_gif = False
+    gif_bytes = None
+    png_bytes = None
+    
+    # Prepare content
+    if text:
+        bold = font_style in ['bold', 'bold-italic']
+        italic = font_style in ['italic', 'bold-italic']
+        img = create_multiline_text_image(text, PANEL_SIZE, color, bg_color, font_name, font_size, bold, italic)
+        
+        if GLOBAL_BRIGHTNESS < 1.0:
+            from PIL import ImageEnhance
+            enhancer = ImageEnhance.Brightness(img)
+            img = enhancer.enhance(GLOBAL_BRIGHTNESS)
+        
+        png_bytes = to_png_bytes(img)
+        
+    elif image_path:
+        full_path = ASSETS_DIR / image_path.replace("/assets/", "")
+        if not full_path.exists():
+            raise HTTPException(404, "Image not found")
+        
+        # Check if it's an animated GIF
+        if full_path.suffix.lower() == '.gif':
+            with Image.open(full_path) as check_img:
+                is_animated_gif = getattr(check_img, 'is_animated', False)
+        
+        if is_animated_gif:
+            with open(full_path, 'rb') as f:
+                gif_bytes = f.read()
+            add_log("Sending animated GIF to all panels...", "info")
+        else:
+            img = resize_for_panel(full_path)
+            
+            if GLOBAL_BRIGHTNESS < 1.0:
+                from PIL import ImageEnhance
+                enhancer = ImageEnhance.Brightness(img)
+                img = enhancer.enhance(GLOBAL_BRIGHTNESS)
+            
+            png_bytes = to_png_bytes(img)
+    else:
+        raise HTTPException(400, "Provide image_path or text")
+    
+    # Send to all panels
+    success_count = 0
+    results_list = []
+    
+    for panel in enabled:
+        # Auto-connect if not connected
+        if not manager.is_connected(panel.mac):
+            await manager.connect(panel.mac, name=panel.name)
+        
+        if is_animated_gif:
+            success = await manager.send_gif(panel.mac, gif_bytes)
+        else:
+            success = await manager.send_image(panel.mac, png_bytes)
+        
+        if success:
+            add_log(f"✓ {panel.name}", "success")
+            success_count += 1
+        else:
+            add_log(f"✗ {panel.name}: send failed", "error")
+        
+        results_list.append((panel.mac, success, "OK" if success else "Failed"))
+    
+    add_log(f"Complete: {success_count}/{len(enabled)}", "info")
+    
+    return {
+        "status": "ok",
+        "success_count": success_count,
+        "total": len(enabled),
+        "results": [
+            {"mac": mac, "success": success, "message": message}
+            for mac, success, message in results_list
+        ]
+    }
+
+
+@app.post("/api/send/grid")
+async def send_to_grid(
+    image_path: Optional[str] = Form(None),
+    text: Optional[str] = Form(None),
+    color: str = Form("#ff9900"),
+    bg_color: str = Form("#000000"),
+    font_name: str = Form("default"),
+    font_size: int = Form(28),
+    font_style: str = Form("regular"),
+    dot_matrix: bool = Form(False),
+):
+    """Send to 4 grid panels (64x64 split)."""
+    config = load_config()
+    grid_panels = config.get_grid_panels()
+    
+    if len(grid_panels) < 4:
+        raise HTTPException(400, f"Grid needs 4 panels, have {len(grid_panels)}")
+    
+    add_log("Sending to grid (64x64)...", "info")
+    
+    # Prepare 64x64 image
+    if text:
+        if dot_matrix:
+            img = create_dot_matrix_text(text, GRID_SIZE, GRID_SIZE, color)
+        else:
+            bold = font_style in ['bold', 'bold-italic']
+            italic = font_style in ['italic', 'bold-italic']
+            img = create_multiline_text_image(text, GRID_SIZE, color, bg_color, font_name, font_size, bold, italic)
+    elif image_path:
+        full_path = ASSETS_DIR / image_path.replace("/assets/", "")
+        if not full_path.exists():
+            raise HTTPException(404, "Image not found")
+        img = resize_for_grid(full_path)
+    else:
+        raise HTTPException(400, "Provide image_path or text")
+    
+    # Apply brightness
+    if GLOBAL_BRIGHTNESS < 1.0:
+        from PIL import ImageEnhance
+        enhancer = ImageEnhance.Brightness(img)
+        img = enhancer.enhance(GLOBAL_BRIGHTNESS)
+    
+    parts = split_for_grid(img)
+    
+    controller = PanelController()
+    send_order = ['rechtsonder', 'linksonder', 'rechtsboven', 'linksboven']
+    
+    results = []
+    success_count = 0
+    
+    for position in send_order:
+        if position not in grid_panels:
+            results.append({"position": position, "success": False, "message": "not configured"})
+            continue
+        
+        panel = grid_panels[position]
+        png_bytes = to_png_bytes(parts[position])
+        
+        success, message = await controller.send_to_panel(panel.mac, png_bytes, position)
+        results.append({"position": position, "success": success, "message": message})
+        
+        if success:
+            add_log(f"✓ {position}", "success")
+            success_count += 1
+        else:
+            add_log(f"✗ {position}: {message}", "error")
+    
+    add_log(f"Grid complete: {success_count}/4", "info")
+    
+    return {"status": "ok", "success_count": success_count, "results": results}
+
+
+# =============================================================================
+# Base64 Image Endpoints (for Matrix signs etc)
+# =============================================================================
+
+@app.post("/api/send/base64")
+async def send_base64_to_single(
+    panel_mac: str = Form(...),
+    image_data: str = Form(...),
+    filename: str = Form(None),
+):
+    """Send a base64-encoded image to a single panel. Handles both static images and GIFs."""
+    import base64
+    
+    config = load_config()
+    panel = config.get_panel_by_mac(panel_mac)
+    
+    if not panel:
+        raise HTTPException(404, "Panel not found")
+    
+    add_log(f"Sending to {panel.name}...", "info")
+    
+    # Decode base64 image
+    try:
+        # Remove data URL prefix if present
+        if ',' in image_data:
+            image_data = image_data.split(',')[1]
+        
+        img_bytes = base64.b64decode(image_data)
+        
+        # Check if it's a GIF (animated)
+        is_gif = (filename and filename.lower().endswith('.gif')) or img_bytes[:6] in [b'GIF87a', b'GIF89a']
+        
+        if is_gif:
+            # Check if animated
+            try:
+                test_img = Image.open(BytesIO(img_bytes))
+                is_animated = getattr(test_img, 'is_animated', False)
+                test_img.close()
+            except:
+                is_animated = False
+            
+            if is_animated:
+                add_log(f"Sending animated GIF to {panel.name}...", "info")
+                manager = get_manager()
+                
+                # Auto-connect if needed
+                if not manager.is_connected(panel.mac):
+                    if not await manager.connect(panel.mac, name=panel.name):
+                        raise HTTPException(500, f"Failed to connect to {panel.name}")
+                
+                success = await manager.send_gif(panel.mac, img_bytes)
+                
+                if success:
+                    add_log(f"✓ GIF sent to {panel.name}", "success")
+                    return {"status": "ok", "message": "GIF sent"}
+                else:
+                    add_log(f"✗ {panel.name}: GIF send failed", "error")
+                    return {"status": "error", "message": "GIF send failed"}
+        
+        # Static image handling
+        img = Image.open(BytesIO(img_bytes)).convert('RGB')
+        
+        # Resize to panel size
+        img = img.resize((PANEL_SIZE, PANEL_SIZE), Image.Resampling.NEAREST)
+        
+        # Apply brightness
+        if GLOBAL_BRIGHTNESS < 1.0:
+            from PIL import ImageEnhance
+            enhancer = ImageEnhance.Brightness(img)
+            img = enhancer.enhance(GLOBAL_BRIGHTNESS)
+        
+        png_bytes = to_png_bytes(img)
+    except Exception as e:
+        add_log(f"Image decode error: {e}", "error")
+        raise HTTPException(400, f"Invalid image data: {e}")
+    
+    controller = PanelController()
+    success, message = await controller.send_to_panel(panel.mac, png_bytes, panel.name)
+    
+    if success:
+        add_log(f"✓ Sent to {panel.name}", "success")
+    else:
+        add_log(f"✗ {panel.name}: {message}", "error")
+    
+    return {"status": "ok" if success else "error", "message": message}
+
+
+@app.post("/api/send/base64/all")
+async def send_base64_to_all(
+    image_data: str = Form(...),
+    filename: str = Form(None),
+):
+    """Send a base64-encoded image to all enabled panels. Handles both static images and GIFs."""
+    import base64
+    
+    config = load_config()
+    panels = config.get_enabled_panels()
+    
+    if not panels:
+        raise HTTPException(400, "No enabled panels")
+    
+    add_log(f"Sending to {len(panels)} panels...", "info")
+    
+    # Decode base64 image
+    try:
+        if ',' in image_data:
+            image_data = image_data.split(',')[1]
+        
+        img_bytes = base64.b64decode(image_data)
+        
+        # Check if it's a GIF (animated)
+        is_gif = (filename and filename.lower().endswith('.gif')) or img_bytes[:6] in [b'GIF87a', b'GIF89a']
+        
+        if is_gif:
+            # Check if animated
+            try:
+                test_img = Image.open(BytesIO(img_bytes))
+                is_animated = getattr(test_img, 'is_animated', False)
+                test_img.close()
+            except:
+                is_animated = False
+            
+            if is_animated:
+                add_log(f"Sending animated GIF to {len(panels)} panels...", "info")
+                manager = get_manager()
+                results = []
+                
+                for panel in panels:
+                    # Auto-connect if needed
+                    if not manager.is_connected(panel.mac):
+                        await manager.connect(panel.mac, name=panel.name)
+                    
+                    success = await manager.send_gif(panel.mac, img_bytes)
+                    results.append({"mac": panel.mac, "name": panel.name, "success": success})
+                
+                success_count = sum(1 for r in results if r.get("success"))
+                add_log(f"✓ GIF sent to {success_count}/{len(panels)} panels", "success" if success_count else "warning")
+                return {"results": results}
+        
+        # Static image handling
+        img = Image.open(BytesIO(img_bytes)).convert('RGB')
+        img = img.resize((PANEL_SIZE, PANEL_SIZE), Image.Resampling.NEAREST)
+        
+        if GLOBAL_BRIGHTNESS < 1.0:
+            from PIL import ImageEnhance
+            enhancer = ImageEnhance.Brightness(img)
+            img = enhancer.enhance(GLOBAL_BRIGHTNESS)
+        
+        png_bytes = to_png_bytes(img)
+    except Exception as e:
+        add_log(f"Image decode error: {e}", "error")
+        raise HTTPException(400, f"Invalid image data: {e}")
+    
+    controller = PanelController()
+    success_count = 0
+    
+    for panel in panels:
+        success, message = await controller.send_to_panel(panel.mac, png_bytes, panel.name)
+        if success:
+            add_log(f"✓ {panel.name}", "success")
+            success_count += 1
+        else:
+            add_log(f"✗ {panel.name}: {message}", "error")
+    
+    add_log(f"Complete: {success_count}/{len(panels)}", "info")
+    
+    return {"status": "ok", "success_count": success_count, "total": len(panels)}
+
+
+@app.post("/api/upload-and-send-all")
+async def upload_and_send_all(file: UploadFile = File(...)):
+    """Upload a file and send it to all enabled panels. Supports GIFs."""
+    contents = await file.read()
+    
+    config = load_config()
+    panels = config.get_enabled_panels()
+    
+    if not panels:
+        raise HTTPException(400, "No enabled panels")
+    
+    # Check if it's a GIF
+    is_gif = file.filename and file.filename.lower().endswith('.gif')
+    if not is_gif:
+        is_gif = contents[:6] in [b'GIF87a', b'GIF89a']
+    
+    manager = get_manager()
+    results = []
+    
+    for panel in panels:
+        # Auto-connect if needed
+        if not manager.is_connected(panel.mac):
+            await manager.connect(panel.mac, name=panel.name)
+        
+        if is_gif:
+            success = await manager.send_gif(panel.mac, contents)
+        else:
+            # Convert to PNG
+            img = Image.open(BytesIO(contents))
+            img = img.convert('RGB').resize((32, 32), Image.Resampling.LANCZOS)
+            buf = BytesIO()
+            img.save(buf, format='PNG')
+            success = await manager.send_image(panel.mac, buf.getvalue())
+        
+        results.append({"mac": panel.mac, "name": panel.name, "success": success})
+    
+    success_count = sum(1 for r in results if r.get("success"))
+    add_log(f"Sent to {success_count}/{len(panels)} panels", "success" if success_count else "warning")
+    
+    return {"results": results}
+
+
+@app.post("/api/matrix/create-gif")
+async def create_matrix_gif(data: dict):
+    """Create an animated GIF from matrix sign frames with flashers.
+    
+    Supports per-frame durations for AID flasher timing.
+    """
+    import base64
+    
+    frames_data = data.get('frames', [])
+    durations = data.get('durations', None)  # Per-frame durations
+    delay = data.get('delay', 300)  # Default delay if durations not provided
+    
+    if not frames_data or len(frames_data) < 2:
+        raise HTTPException(400, "Need at least 2 frames")
+    
+    # Use per-frame durations if provided, otherwise use uniform delay
+    if durations and len(durations) == len(frames_data):
+        frame_durations = durations
+    else:
+        frame_durations = [delay] * len(frames_data)
+    
+    # Decode frames from base64
+    frames = []
+    for frame_data in frames_data:
+        if ',' in frame_data:
+            frame_data = frame_data.split(',')[1]
+        img_bytes = base64.b64decode(frame_data)
+        img = Image.open(BytesIO(img_bytes)).convert('P', palette=Image.Palette.ADAPTIVE, colors=256)
+        frames.append(img)
+    
+    # Create GIF with per-frame durations
+    output = BytesIO()
+    frames[0].save(
+        output,
+        format='GIF',
+        save_all=True,
+        append_images=frames[1:],
+        duration=frame_durations,  # List of durations per frame
+        loop=0,  # Loop forever
+        optimize=False,
+        disposal=0
+    )
+    output.seek(0)
+    
+    return StreamingResponse(output, media_type="image/gif")
+
+
+# =============================================================================
+# Text Preview Endpoint
+# =============================================================================
+
+def has_emoji(text: str) -> bool:
+    """Check if text contains emoji characters."""
+    for char in text:
+        # Emoji ranges
+        if ord(char) > 0x1F300:
+            return True
+        # Some emoji in BMP
+        if ord(char) in range(0x2600, 0x27C0) or ord(char) in range(0x2300, 0x2400):
+            return True
+    return False
+
+
+def create_multiline_text_image(
+    text: str,
+    size: int,
+    color: str,
+    bg_color: str,
+    font_name: str,
+    font_size: int,
+    bold: bool = False,
+    italic: bool = False,
+) -> Image.Image:
+    """Create a multi-line text image that auto-sizes to fit the panel. Supports emoji via pilmoji."""
+    img = Image.new('RGB', (size, size), bg_color)
+    
+    # Handle various newline formats and clean up text
+    clean_text = text.replace('\\n', '\n').replace('\r\n', '\n').replace('\r', '\n')
+    # Keep emoji and printable characters
+    clean_text = ''.join(char if char == '\n' or char.isprintable() else '' for char in clean_text)
+    lines = clean_text.split('\n')
+    # Strip whitespace from each line but keep empty lines for spacing
+    lines = [line.strip() for line in lines]
+    
+    # Check if text contains emoji
+    contains_emoji = has_emoji(text)
+    
+    def get_font(fsize: int):
+        """Get font at specified size."""
+        font = None
+        
+        if font_name not in ['default', 'dotmatrix', '__upload__']:
+            # Check custom fonts first
+            custom_font = FONTS_DIR / font_name
+            if custom_font.exists():
+                try:
+                    font = ImageFont.truetype(str(custom_font), fsize)
+                    return font
+                except:
+                    pass
+        
+        # Try system font with style
+        try:
+            if bold and italic:
+                font_file = "arialbi.ttf"
+            elif bold:
+                font_file = "arialbd.ttf"
+            elif italic:
+                font_file = "ariali.ttf"
+            else:
+                font_file = "arial.ttf"
+            font = ImageFont.truetype(font_file, fsize)
+        except:
+            try:
+                font = ImageFont.truetype("arial.ttf", fsize)
+            except:
+                font = ImageFont.load_default()
+        return font
+    
+    # Use pilmoji for emoji support if available
+    # Note: pilmoji may fail with newer emoji library versions
+    try:
+        from pilmoji import Pilmoji
+        use_pilmoji = True
+    except Exception:
+        use_pilmoji = False
+    
+    if use_pilmoji and contains_emoji:
+        # Use pilmoji for emoji rendering
+        current_size = font_size
+        font = get_font(current_size)
+        
+        # Auto-size with pilmoji
+        with Pilmoji(img) as pilmoji:
+            while current_size >= 6:
+                font = get_font(current_size)
+                
+                # Measure all lines
+                max_width = 0
+                total_height = 0
+                line_heights = []
+                
+                for line in lines:
+                    if line:
+                        # pilmoji doesn't have getsize, use ImageDraw for measurement
+                        temp_draw = ImageDraw.Draw(img)
+                        try:
+                            bbox = temp_draw.textbbox((0, 0), line, font=font)
+                            line_w = bbox[2] - bbox[0]
+                            line_h = bbox[3] - bbox[1]
+                        except:
+                            line_w, line_h = current_size * len(line), current_size
+                        line_heights.append(line_h)
+                        max_width = max(max_width, line_w)
+                        total_height += line_h + 2
+                    else:
+                        line_heights.append(current_size)
+                        total_height += current_size + 2
+                
+                total_height -= 2
+                
+                if max_width <= size - 4 and total_height <= size - 4:
+                    break
+                
+                current_size -= 1
+            
+            # Recalculate heights
+            line_heights = []
+            total_height = 0
+            for line in lines:
+                if line:
+                    temp_draw = ImageDraw.Draw(img)
+                    try:
+                        bbox = temp_draw.textbbox((0, 0), line, font=font)
+                        line_h = bbox[3] - bbox[1]
+                    except:
+                        line_h = current_size
+                    line_heights.append(line_h)
+                    total_height += line_h + 2
+                else:
+                    line_heights.append(current_size)
+                    total_height += current_size + 2
+            total_height -= 2
+            
+            # Draw text centered
+            y = (size - total_height) // 2
+            
+            for i, line in enumerate(lines):
+                if line and i < len(line_heights):
+                    temp_draw = ImageDraw.Draw(img)
+                    try:
+                        bbox = temp_draw.textbbox((0, 0), line, font=font)
+                        line_w = bbox[2] - bbox[0]
+                    except:
+                        line_w = current_size * len(line)
+                    x = (size - line_w) // 2
+                    
+                    # Draw with pilmoji for emoji support
+                    pilmoji.text((x, y), line, font=font, fill=color, 
+                                emoji_scale_factor=0.9, emoji_position_offset=(0, -1))
+                    y += line_heights[i] + 2
+                else:
+                    y += current_size + 2
+        
+        return img
+    
+    # Standard rendering without emoji
+    draw = ImageDraw.Draw(img)
+    
+    # Auto-size: start with requested size and shrink until it fits
+    current_size = font_size
+    font = get_font(current_size)
+    
+    while current_size >= 6:
+        font = get_font(current_size)
+        
+        # Measure all lines using proper bounding boxes
+        line_bboxes = []
+        max_width = 0
+        total_height = 0
+        
+        for line in lines:
+            if line:
+                bbox = draw.textbbox((0, 0), line, font=font)
+                line_h = bbox[3] - bbox[1]
+                line_w = bbox[2] - bbox[0]
+                line_bboxes.append((line_w, line_h, bbox[1]))  # width, height, top offset
+                max_width = max(max_width, line_w)
+                total_height += line_h + 2  # 2px line spacing
+            else:
+                line_bboxes.append((0, current_size, 0))
+                total_height += current_size + 2
+        
+        total_height -= 2  # Remove last spacing
+        
+        # Check if it fits (with 2px margin)
+        if max_width <= size - 4 and total_height <= size - 4:
+            break
+        
+        current_size -= 1
+        line_bboxes = []
+    
+    # Recalculate for final size
+    line_bboxes = []
+    total_height = 0
+    for line in lines:
+        if line:
+            bbox = draw.textbbox((0, 0), line, font=font)
+            line_h = bbox[3] - bbox[1]
+            line_w = bbox[2] - bbox[0]
+            top_offset = bbox[1]
+            line_bboxes.append((line_w, line_h, top_offset))
+            total_height += line_h + 2
+        else:
+            line_bboxes.append((0, current_size, 0))
+            total_height += current_size + 2
+    total_height -= 2
+    
+    # Draw text centered vertically and horizontally
+    y = (size - total_height) // 2
+    
+    for i, line in enumerate(lines):
+        if line and i < len(line_bboxes):
+            line_w, line_h, top_offset = line_bboxes[i]
+            x = (size - line_w) // 2
+            # Adjust for font's top offset (ascender space)
+            draw.text((x, y - top_offset), line, font=font, fill=color)
+            y += line_h + 2
+        else:
+            y += current_size + 2
+    
+    return img
+
+
+@app.post("/api/text/preview")
+async def text_preview(
+    text: str = Form(...),
+    color: str = Form("#ff9900"),
+    bg_color: str = Form("#000000"),
+    font_name: str = Form("default"),
+    font_size: int = Form(18),
+    font_style: str = Form("regular"),
+):
+    """Generate a preview of text rendering."""
+    bold = font_style in ['bold', 'bold-italic']
+    italic = font_style in ['italic', 'bold-italic']
+    
+    img = create_multiline_text_image(text, PANEL_SIZE, color, bg_color, font_name, font_size, bold, italic)
+    
+    buf = BytesIO()
+    img.save(buf, format='PNG')
+    buf.seek(0)
+    
+    return StreamingResponse(buf, media_type="image/png")
+
+
+# =============================================================================
+# Log Endpoint
+# =============================================================================
+
+@app.get("/api/logs")
+async def get_logs(since: int = 0):
+    """Get recent log entries."""
+    return {"logs": list(LOG_BUFFER)}
+
+
+# =============================================================================
+# Fonts Endpoints
+# =============================================================================
+
+@app.get("/api/fonts")
+async def list_fonts():
+    """List available custom fonts."""
+    fonts = []
+    if FONTS_DIR.exists():
+        for f in sorted(FONTS_DIR.iterdir()):
+            if f.is_file() and f.suffix.lower() in FONT_EXTENSIONS:
+                fonts.append(f.name)
+    return {"fonts": fonts}
+
+
+@app.post("/api/fonts/upload")
+async def upload_font(file: UploadFile = File(...)):
+    """Upload a custom font."""
+    if not file.filename:
+        raise HTTPException(400, "No filename")
+    
+    ext = Path(file.filename).suffix.lower()
+    if ext not in FONT_EXTENSIONS:
+        raise HTTPException(400, f"Unsupported format. Use: {FONT_EXTENSIONS}")
+    
+    dest = FONTS_DIR / file.filename
+    with open(dest, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+    
+    add_log(f"Font uploaded: {file.filename}", "success")
+    return {"status": "ok", "filename": file.filename}
+
+
+# =============================================================================
+# Giphy API Endpoints
+# =============================================================================
+
+@app.get("/api/giphy/trending")
+async def giphy_trending(limit: int = 12, offset: int = 0):
+    """Get trending GIFs from Giphy."""
+    try:
+        url = f"https://api.giphy.com/v1/gifs/trending?api_key={GIPHY_API_KEY}&limit={limit}&offset={offset}&rating=g"
+        
+        with urllib.request.urlopen(url, timeout=10) as response:
+            data = json.loads(response.read().decode())
+        
+        gifs = []
+        for gif in data.get('data', []):
+            images = gif.get('images', {})
+            gifs.append({
+                'id': gif.get('id'),
+                'title': gif.get('title', ''),
+                'preview': images.get('fixed_width_small', {}).get('url', ''),
+                'original': images.get('original', {}).get('url', ''),
+                'small': images.get('fixed_width', {}).get('url', ''),
+                'width': int(images.get('fixed_width', {}).get('width', 0)),
+                'height': int(images.get('fixed_width', {}).get('height', 0)),
+            })
+        
+        return {
+            "gifs": gifs,
+            "total": data.get('pagination', {}).get('total_count', 0),
+            "offset": offset
+        }
+    except Exception as e:
+        raise HTTPException(500, f"Giphy error: {str(e)}")
+
+
+@app.get("/api/giphy/search")
+async def giphy_search(q: str, limit: int = 12, offset: int = 0):
+    """Search GIFs on Giphy."""
+    try:
+        query = urllib.parse.quote(q)
+        url = f"https://api.giphy.com/v1/gifs/search?api_key={GIPHY_API_KEY}&q={query}&limit={limit}&offset={offset}&rating=g"
+        
+        with urllib.request.urlopen(url, timeout=10) as response:
+            data = json.loads(response.read().decode())
+        
+        gifs = []
+        for gif in data.get('data', []):
+            images = gif.get('images', {})
+            gifs.append({
+                'id': gif.get('id'),
+                'title': gif.get('title', ''),
+                'preview': images.get('fixed_width_small', {}).get('url', ''),
+                'original': images.get('original', {}).get('url', ''),
+                'small': images.get('fixed_width', {}).get('url', ''),
+                'width': int(images.get('fixed_width', {}).get('width', 0)),
+                'height': int(images.get('fixed_width', {}).get('height', 0)),
+            })
+        
+        return {
+            "gifs": gifs,
+            "query": q,
+            "total": data.get('pagination', {}).get('total_count', 0),
+            "offset": offset
+        }
+    except Exception as e:
+        raise HTTPException(500, f"Giphy search error: {str(e)}")
+
+
+@app.post("/api/giphy/download")
+async def giphy_download(gif_url: str = Form(...), gif_id: str = Form(...)):
+    """Download a GIF from Giphy and save it locally."""
+    try:
+        # Download the GIF
+        with urllib.request.urlopen(gif_url, timeout=30) as response:
+            gif_data = response.read()
+        
+        # Save to local gifs folder
+        filename = f"giphy_{gif_id}.gif"
+        dest = GIFS_DIR / filename
+        
+        with open(dest, "wb") as f:
+            f.write(gif_data)
+        
+        add_log(f"Downloaded GIF: {filename}", "success")
+        
+        return {
+            "status": "ok",
+            "filename": filename,
+            "path": f"/assets/gifs/{filename}"
+        }
+    except Exception as e:
+        add_log(f"GIF download failed: {e}", "error")
+        raise HTTPException(500, f"Download error: {str(e)}")
+
+
+# =============================================================================
+# Grid Preview Endpoint
+# =============================================================================
+
+@app.get("/api/grid-preview")
+async def get_grid_preview(
+    image_path: Optional[str] = None,
+    text: Optional[str] = None,
+    cols: int = 2,
+    rows: int = 2,
+):
+    """Generate LED-style grid preview."""
+    grid_w = cols * PANEL_SIZE
+    grid_h = rows * PANEL_SIZE
+    
+    if text:
+        img = create_dot_matrix_text(text, grid_w, grid_h, '#ff9900')
+    elif image_path:
+        full_path = ASSETS_DIR / image_path.replace("/assets/", "")
+        if not full_path.exists():
+            raise HTTPException(404, "Image not found")
+        
+        with Image.open(full_path) as src:
+            if src.mode != 'RGB':
+                src = src.convert('RGB')
+            img = src.resize((grid_w, grid_h), Image.Resampling.NEAREST)
+    else:
+        img = Image.new('RGB', (grid_w, grid_h), (0, 0, 0))
+    
+    # Apply brightness
+    if GLOBAL_BRIGHTNESS < 1.0:
+        from PIL import ImageEnhance
+        enhancer = ImageEnhance.Brightness(img)
+        img = enhancer.enhance(GLOBAL_BRIGHTNESS)
+    
+    # Scale up for LED effect
+    scale = 4
+    gap = 2  # Gap between panels
+    preview_w = grid_w * scale + (cols - 1) * gap
+    preview_h = grid_h * scale + (rows - 1) * gap
+    preview = Image.new('RGB', (preview_w, preview_h), (10, 10, 15))
+    
+    draw = ImageDraw.Draw(preview)
+    
+    for py in range(rows):
+        for px in range(cols):
+            for y in range(PANEL_SIZE):
+                for x in range(PANEL_SIZE):
+                    sx = px * PANEL_SIZE + x
+                    sy = py * PANEL_SIZE + y
+                    color = img.getpixel((sx, sy))
+                    
+                    dx = px * (PANEL_SIZE * scale + gap) + x * scale
+                    dy = py * (PANEL_SIZE * scale + gap) + y * scale
+                    
+                    if color != (0, 0, 0):
+                        draw.rectangle([dx, dy, dx + scale - 1, dy + scale - 1], fill=color)
+                    else:
+                        draw.rectangle([dx, dy, dx + scale - 1, dy + scale - 1], fill=(5, 5, 8))
+    
+    buf = BytesIO()
+    preview.save(buf, format='PNG')
+    buf.seek(0)
+    
+    return StreamingResponse(buf, media_type="image/png")
+
+
+# =============================================================================
+# Entry Point
+# =============================================================================
+
+def main():
+    """Run the web server."""
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="Panel Hopper Web Server")
+    parser.add_argument("--host", default="0.0.0.0", help="Host to bind to")
+    parser.add_argument("--port", type=int, default=8000, help="Port to listen on")
+    parser.add_argument("--reload", action="store_true", help="Auto-reload on changes")
+    args = parser.parse_args()
+    
+    setup_logging()
+    
+    print("\n" + "=" * 50)
+    print("   Panel Hopper - Web Interface")
+    print("=" * 50)
+    print(f"\n   URL: http://localhost:{args.port}")
+    print(f"   Network: http://0.0.0.0:{args.port}")
+    print("\n   Press Ctrl+C to stop\n")
+    
+    uvicorn.run(
+        "web.server:app" if args.reload else app,
+        host=args.host,
+        port=args.port,
+        reload=args.reload,
+        log_level="info"
+    )
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,379 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A1B2C3D4E5F6789012340BC1 /* ActionLEDboardApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6789012340BF1 /* ActionLEDboardApp.swift */; };
+		A1B2C3D4E5F6789012340BC2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6789012340BF2 /* ContentView.swift */; };
+		A1B2C3D4E5F6789012340BC3 /* BKLightProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6789012340BF3 /* BKLightProtocol.swift */; };
+		A1B2C3D4E5F6789012340BC4 /* BKLightBleClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6789012340BF4 /* BKLightBleClient.swift */; };
+		A1B2C3D4E5F6789012340BC5 /* PanelBitmapRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6789012340BF5 /* PanelBitmapRenderer.swift */; };
+		A1B2C3D4E5F6789012340BC6 /* CalendarEventsProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6789012340BF6 /* CalendarEventsProvider.swift */; };
+		A1B2C3D4E5F6789012340BC7 /* FlightBoardProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6789012340BF7 /* FlightBoardProvider.swift */; };
+		A1B2C3D4E5F6789012340BC8 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6789012340BF9 /* Assets.xcassets */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A1B2C3D4E5F6789012340BF1 /* ActionLEDboardApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionLEDboardApp.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6789012340BF2 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6789012340BF3 /* BKLightProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BKLightProtocol.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6789012340BF4 /* BKLightBleClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BKLightBleClient.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6789012340BF5 /* PanelBitmapRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanelBitmapRenderer.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6789012340BF6 /* CalendarEventsProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarEventsProvider.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6789012340BF7 /* FlightBoardProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightBoardProvider.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6789012340BF8 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A1B2C3D4E5F6789012340BF9 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A1B2C3D4E5F6789012340BFA /* ActionLEDboard.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ActionLEDboard.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A1B2C3D4E5F6789012340BFB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A1B2C3D4E5F6789012340BFC = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D4E5F6789012340BFD /* ActionLEDboard */,
+				A1B2C3D4E5F6789012340BFE /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A1B2C3D4E5F6789012340BFD /* ActionLEDboard */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D4E5F6789012340BF1 /* ActionLEDboardApp.swift */,
+				A1B2C3D4E5F6789012340BF2 /* ContentView.swift */,
+				A1B2C3D4E5F6789012340BFF /* BLE */,
+				A1B2C3D4E5F6789012340C00 /* Rendering */,
+				A1B2C3D4E5F6789012340C01 /* Services */,
+				A1B2C3D4E5F6789012340BF8 /* Info.plist */,
+				A1B2C3D4E5F6789012340BF9 /* Assets.xcassets */,
+			);
+			path = ActionLEDboard;
+			sourceTree = "<group>";
+		};
+		A1B2C3D4E5F6789012340BFE /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D4E5F6789012340BFA /* ActionLEDboard.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A1B2C3D4E5F6789012340BFF /* BLE */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D4E5F6789012340BF3 /* BKLightProtocol.swift */,
+				A1B2C3D4E5F6789012340BF4 /* BKLightBleClient.swift */,
+			);
+			path = BLE;
+			sourceTree = "<group>";
+		};
+		A1B2C3D4E5F6789012340C00 /* Rendering */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D4E5F6789012340BF5 /* PanelBitmapRenderer.swift */,
+			);
+			path = Rendering;
+			sourceTree = "<group>";
+		};
+		A1B2C3D4E5F6789012340C01 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D4E5F6789012340BF6 /* CalendarEventsProvider.swift */,
+				A1B2C3D4E5F6789012340BF7 /* FlightBoardProvider.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A1B2C3D4E5F6789012340C02 /* ActionLEDboard */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1B2C3D4E5F6789012340C04 /* Build configuration list for PBXNativeTarget "ActionLEDboard" */;
+			buildPhases = (
+				A1B2C3D4E5F6789012340C03 /* Sources */,
+				A1B2C3D4E5F6789012340BFB /* Frameworks */,
+				A1B2C3D4E5F6789012340C05 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ActionLEDboard;
+			productName = ActionLEDboard;
+			productReference = A1B2C3D4E5F6789012340BFA /* ActionLEDboard.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A1B2C3D4E5F6789012340C06 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					A1B2C3D4E5F6789012340C02 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+				};
+			};
+			buildConfigurationList = A1B2C3D4E5F6789012340C07 /* Build configuration list for PBXProject "ActionLEDboard" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A1B2C3D4E5F6789012340BFC;
+			productRefGroup = A1B2C3D4E5F6789012340BFE /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A1B2C3D4E5F6789012340C02 /* ActionLEDboard */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A1B2C3D4E5F6789012340C05 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1B2C3D4E5F6789012340BC8 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A1B2C3D4E5F6789012340C03 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1B2C3D4E5F6789012340BC1 /* ActionLEDboardApp.swift in Sources */,
+				A1B2C3D4E5F6789012340BC2 /* ContentView.swift in Sources */,
+				A1B2C3D4E5F6789012340BC3 /* BKLightProtocol.swift in Sources */,
+				A1B2C3D4E5F6789012340BC4 /* BKLightBleClient.swift in Sources */,
+				A1B2C3D4E5F6789012340BC5 /* PanelBitmapRenderer.swift in Sources */,
+				A1B2C3D4E5F6789012340BC6 /* CalendarEventsProvider.swift in Sources */,
+				A1B2C3D4E5F6789012340BC7 /* FlightBoardProvider.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A1B2C3D4E5F6789012340C08 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		A1B2C3D4E5F6789012340C09 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		A1B2C3D4E5F6789012340C0A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = "";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ActionLEDboard/Info.plist;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.actionled.ActionLEDboard;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A1B2C3D4E5F6789012340C0B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = "";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ActionLEDboard/Info.plist;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.actionled.ActionLEDboard;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A1B2C3D4E5F6789012340C07 /* Build configuration list for PBXProject "ActionLEDboard" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1B2C3D4E5F6789012340C08 /* Debug */,
+				A1B2C3D4E5F6789012340C09 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A1B2C3D4E5F6789012340C04 /* Build configuration list for PBXNativeTarget "ActionLEDboard" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1B2C3D4E5F6789012340C0A /* Debug */,
+				A1B2C3D4E5F6789012340C0B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = A1B2C3D4E5F6789012340C06 /* Project object */;
+}
