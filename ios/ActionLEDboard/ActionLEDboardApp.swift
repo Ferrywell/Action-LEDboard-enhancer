@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 @main
 struct ActionLEDboardApp: App {
@@ -10,6 +11,8 @@ struct ActionLEDboardApp: App {
             ContentView()
                 .environmentObject(ble)
                 .environmentObject(calendar)
+                // Avoids empty/black window on some iOS betas before first List layout.
+                .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
         }
     }
 }

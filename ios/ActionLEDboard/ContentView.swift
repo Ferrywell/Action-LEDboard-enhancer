@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct ContentView: View {
     @EnvironmentObject private var ble: BKLightBleClient
@@ -19,7 +20,7 @@ struct ContentView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            List {
                 Section("BLE") {
                     HStack {
                         Button("Scan LED_BLE_*") {
@@ -129,6 +130,8 @@ struct ContentView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            .listStyle(.insetGrouped)
+            .background(Color(uiColor: .systemGroupedBackground))
             .navigationTitle("Action LEDboard")
             .alert("Fout", isPresented: Binding(
                 get: { showError != nil },

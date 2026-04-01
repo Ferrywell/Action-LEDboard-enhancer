@@ -19,8 +19,55 @@ SwiftUI / **iOS 17+**-app onder `ios/` die als **BLE Central** werkt en dezelfde
 
 1. Open **`ios/ActionLEDboard.xcodeproj`** op een Mac.
 2. **Signing & Capabilities**: stel je team in (`DEVELOPMENT_TEAM` is standaard leeg).
-3. Voeg een **1024×1024 App Icon** toe als Xcode daarom vraagt.
+3. **App-icoon:** staat in `Assets.xcassets/AppIcon` als `AppIcon-1024.png` (32×32 LED-rooster, amber op donker). Opnieuw genereren: `python tools/generate_app_icon.py` (vereist Pillow).
 4. Fysiek apparaat met BLE gebruiken voor echte paneeltests.
+
+### Signing (Xcode-waarschuwing “Select a development team”)
+
+- Klik bij **Team** op **Add Account…** en log in met je **Apple ID** (gratis developer-account is genoeg voor eigen iPhone).
+- Kies daarna je **Personal Team** of betaald team. Zonder team kun je **niet** naar een fysiek toestel deployen.
+- **Bundle ID** (`com.actionled.ActionLEDboard`) moet uniek zijn voor jouw team; wijzig alleen als Xcode dat vraagt.
+
+### Simulator vs echte iPhone (Bluetooth)
+
+- **iOS Simulator** ondersteunt **geen** echte Bluetooth LE voor dit soort apps: `CBCentralManager` is vaak **unsupported**; in de console zie je o.a. `API MISUSE` / XPC-meldingen. Dat is **normaal**.
+- **Test altijd op een echte iPhone** met Bluetooth aan voor scan/connect naar het paneel.
+- De app toont een duidelijke melding als BLE niet beschikbaar is (o.a. Simulator of Bluetooth uit).
+
+### “Untrusted Developer” op de iPhone
+
+Als iOS een systeemvenster toont dat apps van **Apple Development: … (jouw e-mail)** niet zijn toegestaan:
+
+1. Open **Instellingen** → **Algemeen** → **VPN en apparaatbeheer** (of **VPN & Device Management**; op sommige iOS-versies heet het **Profielen** / **Device Management**).
+2. Tik onder **Developer App** op het profiel met jouw **Apple Development**-account.
+3. Tik **Vertrouw …** / **Trust** en bevestig.
+
+Daarna start de app normaal vanaf het homescreen. Dit hoort bij **gratis** Apple-ID-signing; het is geen fout in de projectcode.
+
+### Xcode-fout `dyld_shared_cache_extract_dylibs failed` (code 908)
+
+Dit komt van **Xcode** bij het **laden van systeem-symbolen** voor de **debugger** (`dscExtractor`; foutmelding noemt vaak `IDEDebugserverStartWorker`), **niet** van compile-fouten in jouw app. Komt voor bij **bèta-iOS** (bijv. 26.x), kleine **SDK/iOS-build-mismatches**, of Apple-toolingbugs — **ook met USB** (`device_transport = 0`). Kabel alleen lost het dus **niet gegarandeerd** op.
+
+**Snelste workaround (meestal genoeg voor BLE-/paneeltesten): zonder debugger**
+
+1. **Product → Scheme → Edit Scheme…**
+2. Links **Run** → tab **Info**.
+3. Zet **Debugger** op **None** (i.p.v. LLDB).
+4. **Close** → **Run** (⌘R). Xcode start de app dan **zonder** debugserver-symbolen te hoeven extraheren — 908 verdwijnt meestal.
+
+Alternatief: **⌘B** (Build), daarna de app op de iPhone **vanaf het homescreen** openen (na **Vertrouwen**). Geen breakpoints, wél testen.
+
+**Als je LLDB wél nodig hebt:** Xcode/iOS naar de **nieuwste compatibele** combinaties updaten, Derived Data legen, toestel opnieuw koppelen; op **iOS-bèta** blijft dit soms een Apple-zijde issue.
+
+**Overig:** **USB** blijft handig; **Derived Data** legen (**Settings → Locations → Derived Data**); optioneel **DeviceSupport** opnieuw laten opbouwen (`~/Library/Developer/Xcode/iOS DeviceSupport/` — voorzichtig). Zie ook [Apple’s release notes](https://developer.apple.com/documentation/xcode-release-notes).
+
+### Volledig zwart scherm bij openen van de app
+
+Op sommige **iOS-bèta’s** kan een enkele `Form` in `NavigationStack` een leeg of zwart scherm geven. De app gebruikt daarom een **`List`** met **`.listStyle(.insetGrouped)`** en een expliciete **systemGroupedBackground** op het venster. Na wijzigingen: opnieuw **builden en installeren**, daarna de app volledig **afsluiten** (app switcher) en opnieuw openen.
+
+### “App verwijderd maar dezelfde Xcode-fout (908)”
+
+**De app van de iPhone verwijderen** lost **`dyld_shared_cache_extract_dylibs failed`** niet op. Die fout komt van **Xcode op de Mac** (symbolen/debugserver), niet van geïnstalleerde data op het toestel. Wel helpen: **gedeeld scheme** in het project (**`ios/.../xcshareddata/xcschemes/ActionLEDboard.xcscheme`**) met **Run zonder debugger** en optioneel **`IDEPreferLogStreaming=YES`** — na `git pull` in Xcode het scheme **ActionLEDboard** kiezen en opnieuw Run.
 
 ## Gedrag t.o.v. het protocol
 

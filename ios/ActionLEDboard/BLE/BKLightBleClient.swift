@@ -9,6 +9,9 @@ private enum BKLightTiming {
 
 enum BKLightError: LocalizedError {
     case bluetoothUnavailable
+    /// Simulator or device without BLE hardware.
+    case bluetoothUnsupported
+    case bluetoothUnauthorized
     case notConnected
     case characteristicMissing
     case scanFailed
@@ -21,6 +24,10 @@ enum BKLightError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .bluetoothUnavailable: return "Bluetooth is niet beschikbaar of uit."
+        case .bluetoothUnsupported:
+            return "Bluetooth LE is niet beschikbaar (bijv. Simulator). Gebruik een echte iPhone met Bluetooth."
+        case .bluetoothUnauthorized:
+            return "Geen Bluetooth-toegang. Zet dit aan bij Instellingen → Privacy → Bluetooth → Action LEDboard."
         case .notConnected: return "Geen verbinding met het paneel."
         case .characteristicMissing: return "Schrijf-/notify-kenmerk niet gevonden."
         case .scanFailed: return "Scannen mislukt."
@@ -91,12 +98,18 @@ final class BKLightBleClient: NSObject, ObservableObject {
     }
 
     func stopScan() {
-        central.stopScan()
+        if central.state == .poweredOn {
+            central.stopScan()
+        }
         isScanning = false
         if connectionState == .scanning { connectionState = .idle }
     }
 
     func connect(_ peripheral: CBPeripheral) {
+        guard central.state == .poweredOn else {
+            lastError = BKLightError.bluetoothUnavailable.localizedDescription
+            return
+        }
         cancelGattReadyTimeout()
         stopScan()
         connectionState = .connecting
@@ -115,7 +128,12 @@ final class BKLightBleClient: NSObject, ObservableObject {
         writeCharacteristic = nil
         notifyCharacteristic = nil
         cancelAllAwaiters(with: BKLightError.peripheralDisconnected)
-        central.cancelPeripheralConnection(p)
+        if central.state == .poweredOn {
+            central.cancelPeripheralConnection(p)
+        } else {
+            connectionState = .idle
+            connectedPeripheral = nil
+        }
     }
 
     // MARK: - High-level send (32×32 PNG pipeline; 16×32 needs hardware agreement)
@@ -327,8 +345,21 @@ final class BKLightBleClient: NSObject, ObservableObject {
 extension BKLightBleClient: CBCentralManagerDelegate {
     nonisolated func centralManagerDidUpdateState(_ central: CBCentralManager) {
         Task { @MainActor in
-            if central.state != .poweredOn {
+            // Do not treat `.unknown` / `.resetting` as failure — avoids false "Bluetooth uit" and API misuse
+            // if UI calls APIs before the stack is ready.
+            switch central.state {
+            case .poweredOn:
+                self.lastError = nil
+            case .poweredOff:
                 self.lastError = BKLightError.bluetoothUnavailable.localizedDescription
+            case .unauthorized:
+                self.lastError = BKLightError.bluetoothUnauthorized.localizedDescription
+            case .unsupported:
+                self.lastError = BKLightError.bluetoothUnsupported.localizedDescription
+            case .unknown, .resetting:
+                break
+            @unknown default:
+                break
             }
         }
     }
