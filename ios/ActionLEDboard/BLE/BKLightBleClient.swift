@@ -212,7 +212,8 @@ final class BKLightBleClient: NSObject, ObservableObject {
     // MARK: - Internals
 
     /// On iPhone the firmware often advertises a friendly name (e.g. `Pixel board – ACT1026`); PC tools may still show `LED_BLE_*`.
-    private static func isLikelyBKLightPanel(name: String) -> Bool {
+    /// `nonisolated`: called from `nonisolated` `CBCentralManagerDelegate` callbacks (BLE queue).
+    private nonisolated static func isLikelyBKLightPanel(name: String) -> Bool {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
         let lower = trimmed.lowercased()
@@ -223,14 +224,14 @@ final class BKLightBleClient: NSObject, ObservableObject {
     }
 
     /// Vendor apps (e.g. iPixel) match devices that advertise GATT service/characteristic UUIDs in the BLE advertisement.
-    private static func advertisedBKLightServiceUUIDs(from advertisementData: [String: Any]) -> [CBUUID] {
+    private nonisolated static func advertisedBKLightServiceUUIDs(from advertisementData: [String: Any]) -> [CBUUID] {
         var out: [CBUUID] = []
         if let a = advertisementData[CBAdvertisementDataServiceUUIDsKey] as? [CBUUID] { out.append(contentsOf: a) }
         if let b = advertisementData[CBAdvertisementDataOverflowServiceUUIDsKey] as? [CBUUID] { out.append(contentsOf: b) }
         return out
     }
 
-    private static func advertisementMatchesBKLightServices(_ uuids: [CBUUID]) -> Bool {
+    private nonisolated static func advertisementMatchesBKLightServices(_ uuids: [CBUUID]) -> Bool {
         for u in uuids {
             let s = u.uuidString.uppercased()
             if s.contains("FA02") || s.contains("FA03") { return true }
