@@ -123,8 +123,16 @@ Zoals [HARDWARE.md](HARDWARE.md) en [BLE-PROTOCOL.md](BLE-PROTOCOL.md): de hands
 
 - Paneeltests op **fysiek apparaat** (simulator heeft geen echte BLE naar hardware); eventueel TestFlight-interne testers + checklist uit [QA-RELEASE.md](../QA-RELEASE.md).
 
+## PNG-pipeline en paneel (troubleshooting)
+
+- **Render:** `PanelBitmapRenderer.renderLines` levert 32×32-PNG-bytes (renderer gebruikt een **opaque** image format waar van toepassing).
+- **Optionele aanpassing:** `PanelBitmapRenderer.adjustPNG` — rotatie en helderheid; gebruikt **`format.opaque = true`** zodat de PNG geen onnodig alpha-kanaal krijgt (sommige firmware toont RGBA als leeg).
+- **BLE-send:** `BKLightBleClient.sendPNG` — bij **rotatie 0°** en **helderheid 100%** (`brightness` ≈ 1.0) wordt **`adjustPNG` overgeslagen** en gaan de ruwe renderer-bytes naar `BKLightProtocol.buildFrame`. Bij afwijkende rotatie/helderheid wordt `adjustPNG` toegepast.
+- **Symptoom “app zegt verzonden, paneel blijft leeg”:** zie [../PROJECT-STATUS.md](../PROJECT-STATUS.md) en parity met `tools/ble/send_to_panel.py` op hetzelfde paneel.
+
 ## Zie ook
 
 - [IOS-BLE-SEQUENCES.md](IOS-BLE-SEQUENCES.md) — byte-volgordes en timing  
 - [PLATFORM-BLE.md](PLATFORM-BLE.md) — iOS vs andere platforms  
 - [QA-RELEASE.md](../QA-RELEASE.md) — testen Python vs iOS  
+- [PROJECT-STATUS.md](../PROJECT-STATUS.md) — actuele issues en hervat-context voor agents  

@@ -6,6 +6,7 @@ Dit document beschrijft testscenario’s per feature, vergelijking **Python-send
 
 ### Implementatiestatus (repo)
 
+- **`docs/PROJECT-STATUS.md`**: korte **hervat-snapshot** (datum, commits, bekende bugs zoals leeg paneel na send, volgende stappen) — nuttig voor AI-agents en nieuwe sessies.
 - **`docs/QA-RELEASE.md`** (dit bestand): rollen, testmatrix Python vs iOS, scenario-ID’s **C / R / B / S / G / M**, hardware/BT, smoke- en TestFlight-checklists, protocolonzekerheden.
 - **iOS:** `ios/ActionLEDboard/` bevat o.a. `ContentView.swift` (BLE-scan/connect, modi kalender / bericht / vluchten, send), `BKLightBleClient` + `BKLightProtocol`, providers en `PanelBitmapRenderer`. De scenario’s hieronder zijn **uitvoerbaar** zodra je een fysiek paneel en TestFlight/debug-build hebt; verdere UI-polish (foutteksten, GIF-kiezer, enz.) kan nog open staan — escaleer UX naar micro-display UX.
 - **Python:** volledige send en GIF blijven te valideren via `reference/panel-hopper-github` en `tools/ble/` voor pariteit met iOS.

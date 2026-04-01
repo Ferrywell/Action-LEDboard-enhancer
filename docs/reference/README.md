@@ -2,6 +2,12 @@
 
 Deze map bundelt **feiten uit code, GitHub en eerdere projecten** voor het nieuwe **Action-LEDboard-enhancer** project. Gebruik dit als startpunt voor iOS-app, PC-tools of protocoluitbreidingen.
 
+**Repository-root (één niveau omhoog):**
+
+- [README.md](../../README.md) — snelle start, links naar docs en tools.
+- [AGENTS.md](../../AGENTS.md) — richtlijnen voor **AI-agents** (Claude Code, Cursor): mappen, regels, tests, debugging.
+- [PROJECT-STATUS.md](../PROJECT-STATUS.md) — actuele staat, recente fixes, open punten (hervat-sessie).
+
 ## Documenten
 
 | Bestand | Inhoud |

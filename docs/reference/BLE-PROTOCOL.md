@@ -28,6 +28,8 @@ De `32 00`-delen zijn gebonden aan de **huidige 32×32-aanname**; voor **16×32*
 
 ## Stilstaand beeld (PNG)
 
+**Encoder:** gebruik bij voorkeur **opaque RGB-PNG** (geen alpha). Sommige firmware toont **RGBA**-frames als leeg; de iOS-app vermijdt onnodige alpha (zie `PanelBitmapRenderer` / `BKLightBleClient.sendPNG` en [PROJECT-STATUS.md](../PROJECT-STATUS.md)).
+
 1. Optioneel: animatie stoppen (`set_display_mode(1)` — static).
 2. Handshake indien nog niet gedaan in deze sessie.
 3. **`CMD_EDIT_END`**: `05 00 04 01 00` (iPixel: “edit end” vóór frame).
