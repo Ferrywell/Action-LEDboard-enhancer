@@ -6,11 +6,11 @@
 
 ## Huidige opdracht (lead) — ronde 3
 
-**Zie [`management/ROADMAP.md`](../../ROADMAP.md) — Fase A + B.**
+**Geen TestFlight — QA op eigen device via Xcode-build.**
 
-1. **Fase A:** Controleer dat [`docs/HARDWARE-TEST-SCRIPT.md`](../../docs/HARDWARE-TEST-SCRIPT.md) nog klopt met de huidige app (o.a. scan-naam `LED_BLE_*` / Pixel board — verwijs naar IOS-APP als nodig).
-2. **Fase B:** Doorloop rookscenario’s in [`docs/QA-RELEASE.md`](../../docs/QA-RELEASE.md) die voor TestFlight relevant zijn; werk release-checklist bij waar gaten zijn.
-3. Vraag Ferry om het testblok in [`management/STATUS.md`](../../STATUS.md) in te vullen na doorloop script.
+1. **Fase A:** afgerond in STATUS; script desgewenst nog alignen met huidige app-teksten (scan Pixel board / LED_BLE).
+2. **Fase B (licht):** handmatige rooktests op fysiek device; **geen** App Store Connect / TestFlight-checklist verplicht.
+3. Pytest BLE waar van toepassing blijft groen.
 
 ---
 

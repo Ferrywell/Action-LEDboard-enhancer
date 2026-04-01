@@ -12,6 +12,9 @@ struct ContentView: View {
     @State private var statusMessage: String?
     @State private var showError: String?
     @State private var showBleTip = false
+    /// 0…100 — hardware brightness (`BKLightBleClient.setBrightness`); debounced when sliding.
+    @State private var panelBrightness = 70.0
+    @State private var brightnessSendTask: Task<Void, Never>?
 
     enum PanelMode: String, CaseIterable, Identifiable {
         case calendar = "Kalender"
@@ -29,6 +32,9 @@ struct ContentView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     connectionSection
+                    if ble.connectedPeripheral != nil {
+                        brightnessSection
+                    }
                     modeSection
                     modeContentSection
                     sendSection
@@ -59,6 +65,10 @@ struct ContentView: View {
                 Button("OK", role: .cancel) { showError = nil }
             } message: {
                 Text(showError ?? "")
+            }
+            .onChange(of: ble.connectedPeripheral?.identifier) { _, _ in
+                brightnessSendTask?.cancel()
+                brightnessSendTask = nil
             }
             .sheet(isPresented: $showBleTip) {
                 NavigationStack {
@@ -192,6 +202,53 @@ struct ContentView: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(Color(uiColor: .secondarySystemGroupedBackground))
         )
+    }
+
+    private var brightnessSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Helderheid paneel")
+                .font(.title3.weight(.semibold))
+            HStack {
+                Image(systemName: "sun.min")
+                    .foregroundStyle(.secondary)
+                Slider(value: $panelBrightness, in: 0...100, step: 1)
+                    .tint(.orange)
+                Image(systemName: "sun.max.fill")
+                    .foregroundStyle(.secondary)
+            }
+            Text("\(Int(panelBrightness))%")
+                .font(.subheadline.monospacedDigit())
+                .foregroundStyle(.secondary)
+            Text("Stel helderheid in op het LED-paneel (los van je bericht).")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color(uiColor: .secondarySystemGroupedBackground))
+        )
+        .opacity(ble.isPanelReady ? 1 : 0.45)
+        .disabled(!ble.isPanelReady)
+        .onChange(of: panelBrightness) { _, new in
+            scheduleBrightnessSend(new)
+        }
+    }
+
+    private func scheduleBrightnessSend(_ value: Double) {
+        brightnessSendTask?.cancel()
+        let target = UInt8(clamping: Int(value.rounded()))
+        brightnessSendTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 280_000_000)
+            guard !Task.isCancelled else { return }
+            guard ble.isPanelReady else { return }
+            do {
+                try await ble.setBrightness(target)
+            } catch {
+                showError = error.localizedDescription
+            }
+        }
     }
 
     private var bleStatusLine: String {

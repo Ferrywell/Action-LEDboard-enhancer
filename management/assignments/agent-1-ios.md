@@ -6,13 +6,11 @@
 
 ## Huidige opdracht (lead) — ronde 3
 
-**Zie [`management/ROADMAP.md`](../../ROADMAP.md) — Fase B (TestFlight) voor jouw rol.**
+**Project zonder betaald Developer-account — geen TestFlight-verplichting.**
 
-1. Lees [`docs/reference/IOS-APP.md`](../../docs/reference/IOS-APP.md) sectie **Nog te doen voor TestFlight** en vergelijk met de huidige repo (`Info.plist`, capabilities, icon).
-2. Vul ontbrekende punten aan in code of documentatie (geen willekeurige wijzigingen aan `BKLightProtocol`-bytes).
-3. Noteer in rapport wat nog handmatig in Xcode/App Store Connect moet (Archive, testers).
-
-*Fase A (hardwaretest) mag Ferry parallel afronden; blokkeer geen documentatieverbeteringen.*
+1. **Fase C (prioriteit):** GIF vanaf iPhone kiezen en naar het paneel sturen — volg `BKLightProtocol` / Python `send_gif`; geen protocolbytes wijzigen zonder afstemming.
+2. **Fase B (optioneel):** `Info.plist`, BLE-capabilities, app-icoon — alleen als er gaten zijn voor een **device-build** met Personal Team.
+3. Rapport: wat gebouwd is; TestFlight/App Store Connect **n.v.t.** tenzij Ferry later betaald account neemt.
 
 ---
 

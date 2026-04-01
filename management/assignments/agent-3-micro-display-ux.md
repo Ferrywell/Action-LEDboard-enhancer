@@ -6,13 +6,10 @@
 
 ## Huidige opdracht (lead) — ronde 3
 
-**Zie [`management/ROADMAP.md`](../../ROADMAP.md) — Fase D.**
+**Fase D — helderheid staat in `ContentView` (slider, debounced → `setBrightness`).**
 
-1. Voeg **paneel-helderheid** toe in de SwiftUI-UI: gebruiker kan `BKLightBleClient.setBrightness` aanroepen (0–100), met duidelijke labels — slider of discrete stappen.
-2. Houd rekening met `isPanelReady` / fouttoon als niet verbonden.
-3. Optioneel: korte hint in copy dat dit het **hardware**-helderheid betreft (niet alleen PNG).
-
-*Mag parallel aan Fase B lopen (kleine, geïsoleerde UI-wijziging).*
+1. Optioneel: **rotatie** (kwartslagen) in UI via `rotationCommand` / `sendPNG(rotationDegrees:)`.
+2. Kleine copy/UX-polish na feedback Ferry.
 
 ---
 

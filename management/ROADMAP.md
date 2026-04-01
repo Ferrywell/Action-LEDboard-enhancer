@@ -1,8 +1,10 @@
 # Roadmap — Action-LEDboard-enhancer (lead / planner)
 
-*Planner: lead-AI + Ferry. Dit bestand is de bron van waarheid voor **volgorde** en **scope**; details staan in code/docs.*
+*Planner: lead-AI + Ferry. Details in code/docs; dit bestand = volgorde en scope.*
 
-**Workflow:** zie [assignments/README.md](assignments/README.md). Per fase: juiste agent-chat openen → prompt uit [assignments/PROMPTS.md](assignments/PROMPTS.md) → rapport in `agent-*.md` + korte update in [STATUS.md](STATUS.md).
+**Workflow:** [assignments/README.md](assignments/README.md) · prompts: [assignments/PROMPTS.md](assignments/PROMPTS.md)
+
+**Distributie (projectkeuze):** geen verplicht **betaald** Apple Developer Program. Standaard: **Xcode → eigen iPhone** met **gratis Apple ID** (Personal Team, ~7 dagen signing). **TestFlight / App Store** alleen als later een betaald account wordt genomen.
 
 ---
 
@@ -10,90 +12,75 @@
 
 | Fase | Naam | Status |
 |------|------|--------|
-| **A** | Hardwarevalidatie afronden | **Actief** — script doorlopen + STATUS invullen |
-| **B** | TestFlight & releasehygiëne | Start na A |
-| **C** | GIF versturen op iOS | Start na B (protocol: `display_session.py` / chunking) |
-| **D** | Micro-UX op het paneel | Start na B of parallel aan C (klein) |
-| **E** | Python ↔ iOS parity hardenen | Doorlopend waar relevant |
-| **F** | 16×32 / andere hardware | **Geblokkeerd** tot BLE-capture of officiële specs |
+| **A** | Hardwarevalidatie | **Afgerond** (Ferry: werkt op echt paneel) |
+| **B** | Releasehygiëne | **Optioneel** — licht; **geen** TestFlight zonder $99-account |
+| **C** | GIF versturen op iOS | **Actief** volgende grote feature |
+| **D** | Micro-UX (paneel) | **Actief** (o.a. helderheid in UI) |
+| **E** | Python ↔ iOS parity | Doorlopend |
+| **F** | 16×32 | **Geblokkeerd** tot metingen |
 
 ---
 
-## Fase A — Hardwarevalidatie (kort, verplicht voor “ronde 3 klaar”)
+## Fase A — Hardwarevalidatie
 
-**Doel:** Zelfde feiten in `STATUS.md` als op het werkblad.
-
-1. Loop [docs/HARDWARE-TEST-SCRIPT.md](../docs/HARDWARE-TEST-SCRIPT.md) (15–20 min).
-2. Vul in [STATUS.md](STATUS.md) het blok *Na jouw hardwaretest* (datum, device, gelukt/niet, Python parity ja/nee).
-3. Optioneel: zelfde test-PNG via PC (`tools/ble/generate_test_png.py` + `send_to_panel.py`) voor visuele parity — zie script § B.
-
-**Agents:** geen code-opdracht; **Agent 4** mag tussentijds typos in test-script melden.
+**Afgerond** — zie [STATUS.md](STATUS.md) blok *Na jouw hardwaretest*.
 
 ---
 
-## Fase B — TestFlight & release
+## Fase B — Releasehygiëne (optioneel, geen TestFlight)
 
-**Doel:** Reproduerbare build en interne testronde.
+**Doel:** Alleen wat zinvol is zonder betaald account.
 
 | Agent | Opdracht |
 |-------|----------|
-| **1** | [IOS-APP.md § Nog te doen voor TestFlight](../docs/reference/IOS-APP.md): Info.plist, capabilities, Archive/Distribute-stappen documenteren waar nog gaten zijn; ontbrekende checklistitems in code/docs afvinken. |
-| **4** | [QA-RELEASE.md](../docs/QA-RELEASE.md): smoke-checklist (C/R/S/B), release notes-template, link naar HARDWARE-TEST-SCRIPT. |
+| **1** | Info.plist, BLE-capabilities, icon — consistent met build op device; **geen** Archive→TestFlight-stappen verplicht. |
+| **4** | Rookscenario’s (handmatig op device), geen App Store Connect-checklist. |
 
-**Klaar als:** checklist TestFlight + QA rooktests zijn afgevinkt (of expliciet uitgesteld met reden in STATUS).
+**Overslaan** als alleen Ferry lokaal bouwt: dat is OK.
 
 ---
 
 ## Fase C — GIF op iOS
 
-**Doel:** Zelfde logica als Python `BleDisplaySession.send_gif` / chunking — **geen** willekeurige protocolbyte-wijzigingen; alleen Swift-implementatie + UI.
+**Doel:** Zelfde logica als Python `BleDisplaySession.send_gif` / chunking — **geen** willekeurige protocolbyte-wijzigingen.
 
 | Agent | Opdracht |
 |-------|----------|
-| **2** | Referentie: `reference/.../display_session.py` (`send_gif`, ACK’s `05 00 03 00`). Tests/pytest groen houden; documenteer afhankelijkheden voor Swift. |
-| **1** | GIF kiezen (Photos/Files), naar panel sturen, foutafhandeling; hergebruik `BKLightProtocol` waar mogelijk. |
-
-**Klaar als:** korte GIF op 32×32-paneel speelt (of duidelijke “niet ondersteund”-scope in STATUS).
+| **2** | Referentie: `display_session.py` (`send_gif`, ACK’s). Pytest groen. |
+| **1** | GIF kiezen, naar panel sturen, foutafhandeling. |
 
 ---
 
 ## Fase D — Micro-UX (paneel)
 
-**Doel:** Bediening zonder Mac.
-
 | Agent | Opdracht |
 |-------|----------|
-| **3** | Heldere **helderheid** in de app (`setBrightness` bestaat al in `BKLightBleClient`) — slider of stappen; korte copy. Optioneel: rotatie als die in UI ontbreekt. |
-
-**Klaar als:** gebruiker kan helderheid aanpassen zonder Xcode.
+| **3** | Helderheid + evt. rotatie in UI; `setBrightness` / `sendPNG` parameters. |
 
 ---
 
 ## Fase E — Parity Python ↔ iOS (doorlopend)
 
-- Bij elke protocolwijziging: `tests/test_ble_protocol.py` + iOS `BKLightProtocol.swift` synchroon houden.
-- `tools/ble/README.md` *Parity met iPhone* blijft de handleiding voor handmatige vergelijking.
+- Tests + `BKLightProtocol.swift` synchroon houden bij protocolwijzigingen.
 
 ---
 
-## Fase F — 16×32 / andere SKU’s
+## Fase F — 16×32
 
-- **Niet starten** tot handshake/frame-bytes gemeten zijn ([HARDWARE.md](../docs/reference/HARDWARE.md), [16x32-HARDWARE.md](../docs/reference/16x32-HARDWARE.md)).
-- Geen geraden `32 00`-wijzigingen in productie-builds.
+- Niet starten tot handshake/frame vastliggen.
 
 ---
 
-## Volgorde (én-één-lijn)
+## Volgorde
 
 ```
-A (validatie) → B (TestFlight/QA) → C (GIF) ─┬→ D (UX)
-                                             └→ E (doorlopend)
-F = aparte track, alleen na metingen
+A ✓ → (B optioneel) → C (GIF) + D (UX) parallel mogelijk → E doorlopend
+F = apart, geblokkeerd
 ```
 
 ---
 
-## Herinnering voor Ferry
+## Ferry
 
-- Na elke merge die je op de Mac nodig hebt: `git pull` op `main`.
-- Agents starten pas als de **Huidige opdracht (lead)** in hun `agent-*.md` overeenkomt met de fase hierboven (lead past dat aan bij fase-switch).
+- `git pull` op `main` na wijzigingen.
+- Geen TestFlight nodig voor dit project tenzij je zelf een betaald account wilt.

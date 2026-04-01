@@ -1,13 +1,14 @@
 # Projectstatus — Action-LEDboard-enhancer
 
-*Laatste update: 2026-04-01 — roadmap actief; hardware informeel OK*
+*Laatste update: 2026-04-01 — Fase A afgerond; geen betaald Apple Developer-account (geen TestFlight).*
 
-**Roadmap (planner):** [ROADMAP.md](ROADMAP.md) · **Opdrachten:** [assignments/](assignments/README.md) · **Test:** [docs/HARDWARE-TEST-SCRIPT.md](../docs/HARDWARE-TEST-SCRIPT.md)
+**Roadmap (planner):** [ROADMAP.md](ROADMAP.md) · **Opdrachten:** [assignments/](assignments/README.md)
 
 ## Lead / product
 
-- **Nu:** **Fase A** — hardwaretest-script formeel afronden en onderstaand blok invullen (ook als alles al werkt).
-- **Daarna:** **Fase B** (TestFlight/QA) volgens [ROADMAP.md](ROADMAP.md); agents volgen `agent-*.md`.
+- **Fase A:** afgerond — Ferry: hardwaretest geslaagd (connect + bericht naar paneel).
+- **Distributie:** installatie via **Xcode → eigen iPhone** met gratis Apple ID (Personal Team); **geen** TestFlight/App Store tot eventueel later betaald account.
+- **Nu:** **Fase C + D** (GIF op iOS + UX) volgens [ROADMAP.md](ROADMAP.md); Fase B (releasehygiëne zonder TestFlight) is optioneel/licht.
 
 ## Samenvatting ronde 2 (archief)
 
@@ -38,18 +39,15 @@
 
 ## Na jouw hardwaretest (vul in)
 
-- Datum test:
-- Paneel + iPhone: werkt / werkt niet (kort):
-- Python parity (`send_to_panel`) getest: ja / nee / n.v.t.
-- Opmerkingen voor lead:
-
-*Notitie 2026-04-01: BLE + dot-matrix tekst zijn in de praktijk positief bevonden; formele doorloop van [HARDWARE-TEST-SCRIPT.md](../docs/HARDWARE-TEST-SCRIPT.md) blijft aanbevolen voordat Fase B als “af” geldt.*
+- Datum test: **2026-04-01** (bevestigd door Ferry)
+- Paneel + iPhone: **werkt** — scan, connect, tekst naar paneel OK
+- Python parity (`send_to_panel`) getest: **n.v.t.** / later
+- Opmerkingen: **geen $99 Apple Developer Program** — geen TestFlight; builds via Xcode naar eigen device.
 
 ---
 
 ## Volgende stappen (planner)
 
-1. **Fase A:** [HARDWARE-TEST-SCRIPT.md](../docs/HARDWARE-TEST-SCRIPT.md) + blok hierboven invullen.
-2. **Fase B:** TestFlight + QA — zie [ROADMAP.md](ROADMAP.md) Fase B.
-3. **Fase C:** GIF op iOS — zie [ROADMAP.md](ROADMAP.md) Fase C.
-4. **Fase D:** helderheid/UX — zie [ROADMAP.md](ROADMAP.md) Fase D.
+1. **Fase C:** GIF naar paneel vanaf iOS (Swift + protocolreferentie).
+2. **Fase D:** UX op paneel (o.a. helderheid in app — kan al deels gedaan zijn).
+3. **Fase B:** alleen als iemand ooit betaald account neemt: TestFlight; anders overslaan.
