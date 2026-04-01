@@ -12,6 +12,7 @@
 		A1B2C3D4E5F6789012340BC3 /* BKLightProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6789012340BF3 /* BKLightProtocol.swift */; };
 		A1B2C3D4E5F6789012340BC4 /* BKLightBleClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6789012340BF4 /* BKLightBleClient.swift */; };
 		A1B2C3D4E5F6789012340BC5 /* PanelBitmapRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6789012340BF5 /* PanelBitmapRenderer.swift */; };
+		A1B2C3D4E5F6789012340D02 /* DotMatrixFont.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6789012340D01 /* DotMatrixFont.swift */; };
 		A1B2C3D4E5F6789012340BC6 /* CalendarEventsProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6789012340BF6 /* CalendarEventsProvider.swift */; };
 		A1B2C3D4E5F6789012340BC7 /* FlightBoardProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6789012340BF7 /* FlightBoardProvider.swift */; };
 		A1B2C3D4E5F6789012340BC8 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6789012340BF9 /* Assets.xcassets */; };
@@ -23,6 +24,7 @@
 		A1B2C3D4E5F6789012340BF3 /* BKLightProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BKLightProtocol.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6789012340BF4 /* BKLightBleClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BKLightBleClient.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6789012340BF5 /* PanelBitmapRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanelBitmapRenderer.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6789012340D01 /* DotMatrixFont.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DotMatrixFont.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6789012340BF6 /* CalendarEventsProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarEventsProvider.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6789012340BF7 /* FlightBoardProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightBoardProvider.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6789012340BF8 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -83,6 +85,7 @@
 		A1B2C3D4E5F6789012340C00 /* Rendering */ = {
 			isa = PBXGroup;
 			children = (
+				A1B2C3D4E5F6789012340D01 /* DotMatrixFont.swift */,
 				A1B2C3D4E5F6789012340BF5 /* PanelBitmapRenderer.swift */,
 			);
 			path = Rendering;
@@ -171,6 +174,7 @@
 				A1B2C3D4E5F6789012340BC3 /* BKLightProtocol.swift in Sources */,
 				A1B2C3D4E5F6789012340BC4 /* BKLightBleClient.swift in Sources */,
 				A1B2C3D4E5F6789012340BC5 /* PanelBitmapRenderer.swift in Sources */,
+				A1B2C3D4E5F6789012340D02 /* DotMatrixFont.swift in Sources */,
 				A1B2C3D4E5F6789012340BC6 /* CalendarEventsProvider.swift in Sources */,
 				A1B2C3D4E5F6789012340BC7 /* FlightBoardProvider.swift in Sources */,
 			);

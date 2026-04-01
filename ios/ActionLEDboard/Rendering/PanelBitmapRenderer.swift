@@ -26,27 +26,78 @@ enum PanelBitmapRenderer {
         return out.pngData() ?? data
     }
 
-    /// Multi-line text bitmap (black background, amber text by default) for message / calendar / flight summary.
+    /// Multi-line text as a **5×7 dot matrix** (one bitmap pixel ↔ one LED), matching `panel_hopper/graphics.py`.
+    /// Avoids vector fonts and anti-aliasing, which map badly to discrete LEDs and looked “sheared” or unreadable.
     static func renderLines(_ lines: [String], background: UIColor = .black, foreground: UIColor = defaultTextForeground) -> Data? {
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1
         format.opaque = true
         let renderer = UIGraphicsImageRenderer(size: panelSize, format: format)
         let img = renderer.image { ctx in
+            let cg = ctx.cgContext
+            cg.setAllowsAntialiasing(false)
+            cg.interpolationQuality = .none
             background.setFill()
-            ctx.fill(CGRect(origin: .zero, size: panelSize))
-            let paragraph = NSMutableParagraphStyle()
-            paragraph.alignment = .center
-            let font = UIFont.monospacedSystemFont(ofSize: 5, weight: .medium)
-            let attrs: [NSAttributedString.Key: Any] = [
-                .font: font,
-                .foregroundColor: foreground,
-                .paragraphStyle: paragraph,
-            ]
-            let text = lines.joined(separator: "\n") as NSString
-            let inset = CGRect(x: 0, y: 2, width: panelSize.width, height: panelSize.height - 4)
-            text.draw(with: inset, options: [.usesLineFragmentOrigin, .usesFontLeading], attributes: attrs, context: nil)
+            cg.fill(CGRect(origin: .zero, size: panelSize))
+
+            let trimmed = lines.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+            guard !trimmed.isEmpty else { return }
+
+            foreground.setFill()
+            let scale = pickScale(for: trimmed)
+            let lineGap = max(1, scale)
+            var totalHeight = 0
+            for (i, line) in trimmed.enumerated() {
+                totalHeight += DotMatrixFont.charHeight * scale
+                if i > 0 { totalHeight += lineGap }
+            }
+            var y = (Int(panelSize.height) - totalHeight) / 2
+            for (idx, line) in trimmed.enumerated() {
+                let lineWidth = DotMatrixFont.textWidth(line) * scale
+                let x = (Int(panelSize.width) - lineWidth) / 2
+                drawDotMatrixLine(line, in: cg, x: x, y: y, scale: scale)
+                y += DotMatrixFont.charHeight * scale
+                if idx < trimmed.count - 1 { y += lineGap }
+            }
         }
         return img.pngData()
+    }
+
+    /// Largest scale 1…4 so all lines fit in the inner margin (same idea as Python `create_dot_matrix_text` auto_scale).
+    private static func pickScale(for lines: [String]) -> Int {
+        let margin = 2
+        let maxDim = Int(panelSize.width) - margin * 2
+        for s in (1...4).reversed() {
+            let gap = max(1, s)
+            var maxW = 0
+            var totalH = 0
+            for (i, line) in lines.enumerated() {
+                let w = DotMatrixFont.textWidth(line) * s
+                maxW = max(maxW, w)
+                totalH += DotMatrixFont.charHeight * s
+                if i > 0 { totalH += gap }
+            }
+            if maxW <= maxDim && totalH <= maxDim {
+                return s
+            }
+        }
+        return 1
+    }
+
+    private static func drawDotMatrixLine(_ text: String, in cg: CGContext, x: Int, y: Int, scale: Int) {
+        var cx = x
+        for ch in text.uppercased() {
+            let rows = DotMatrixFont.rows(for: ch)
+            for (rowIdx, row) in rows.enumerated() {
+                for (colIdx, dot) in row.enumerated() {
+                    if dot == "#" {
+                        let px = cx + colIdx * scale
+                        let py = y + rowIdx * scale
+                        cg.fill(CGRect(x: px, y: py, width: scale, height: scale))
+                    }
+                }
+            }
+            cx += (DotMatrixFont.charWidth + DotMatrixFont.charSpacing) * scale
+        }
     }
 }
