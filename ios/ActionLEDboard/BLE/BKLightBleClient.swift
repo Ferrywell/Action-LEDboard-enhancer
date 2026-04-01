@@ -90,11 +90,23 @@ final class BKLightBleClient: NSObject, ObservableObject {
             lastError = BKLightError.bluetoothUnavailable.localizedDescription
             return
         }
+        if #available(iOS 13.1, *) {
+            switch CBCentralManager.authorization {
+            case .denied, .restricted:
+                lastError = BKLightError.bluetoothUnauthorized.localizedDescription
+                return
+            case .notDetermined, .allowedAlways:
+                break
+            @unknown default:
+                break
+            }
+        }
         lastError = nil
         discoveredPeripherals.removeAll()
         isScanning = true
         connectionState = .scanning
-        central.scanForPeripherals(withServices: nil, options: [CBCentralManagerScanOptionAllowDuplicatesKey: false])
+        // true: iOS often omits the local name in the first advertisement; without duplicates the panel is never listed.
+        central.scanForPeripherals(withServices: nil, options: [CBCentralManagerScanOptionAllowDuplicatesKey: true])
     }
 
     func stopScan() {
@@ -365,10 +377,14 @@ extension BKLightBleClient: CBCentralManagerDelegate {
     }
 
     nonisolated func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral, advertisementData: [String: Any], rssi RSSI: NSNumber) {
-        let name = peripheral.name ?? advertisementData[CBAdvertisementDataLocalNameKey] as? String ?? ""
+        // Prefer advertisement local name (often set before peripheral.name on iOS).
+        let advName = advertisementData[CBAdvertisementDataLocalNameKey] as? String
+        let name = [advName, peripheral.name].compactMap { $0 }.first { !$0.isEmpty } ?? ""
         guard name.hasPrefix("LED_BLE_") else { return }
         Task { @MainActor in
-            if !self.discoveredPeripherals.contains(where: { $0.identifier == peripheral.identifier }) {
+            if let idx = self.discoveredPeripherals.firstIndex(where: { $0.identifier == peripheral.identifier }) {
+                self.discoveredPeripherals[idx] = peripheral
+            } else {
                 self.discoveredPeripherals.append(peripheral)
             }
         }

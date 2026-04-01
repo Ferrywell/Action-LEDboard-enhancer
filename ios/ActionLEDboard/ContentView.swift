@@ -22,6 +22,9 @@ struct ContentView: View {
         NavigationStack {
             List {
                 Section("BLE") {
+                    Text("Sluit op je PC geen tweede verbinding met hetzelfde paneel. Zet Bluetooth voor deze app aan onder Instellingen als er niets verschijnt.")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
                     HStack {
                         Button("Scan LED_BLE_*") {
                             ble.startScan()
