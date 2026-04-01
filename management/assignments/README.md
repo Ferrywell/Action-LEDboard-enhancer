@@ -1,5 +1,7 @@
 # Opdrachten per agent (lead → uitvoering → rapport)
 
+**Roadmap / volgorde:** [../ROADMAP.md](../ROADMAP.md) — welke fase nu actief is en wat elke agent doet.
+
 ## Rollen
 
 | Bestand | Rol |

@@ -6,7 +6,11 @@
 
 ## Huidige opdracht (lead) — ronde 3
 
-**Pauze — wacht op hardwaretest Ferry.** Geen nieuwe opdracht tot de lead dit blok vervangt na resultaten in [`management/STATUS.md`](../../STATUS.md).
+**Zie [`management/ROADMAP.md`](../../ROADMAP.md) — Fase E (doorlopend) + voorbereiding Fase C (GIF).**
+
+1. Draai `pytest` op BLE-protocoltests; rapporteer **15/15** of fix + documenteer.
+2. Lees `send_gif` / GIF-ACK’s in `reference/panel-hopper-github/vendor/bk_light/display_session.py` — **geen** productiecode wijzigen tot Fase C start; optioneel korte notitie in rapport “klaar voor Swift-GIF”.
+3. Houd `tools/ble/README.md` parity-sectie consistent met iOS-gedrag.
 
 ---
 

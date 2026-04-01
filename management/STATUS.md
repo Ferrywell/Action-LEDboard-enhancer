@@ -1,15 +1,15 @@
 # Projectstatus — Action-LEDboard-enhancer
 
-*Laatste update: 2026-04-01 — ronde 2 afgerond; wacht op hardwaretest Ferry*
+*Laatste update: 2026-04-01 — roadmap actief; hardware informeel OK*
 
-**Opdrachten:** [assignments/](assignments/README.md) · **Prompts:** [assignments/PROMPTS.md](assignments/PROMPTS.md) · **Test:** [docs/HARDWARE-TEST-SCRIPT.md](../docs/HARDWARE-TEST-SCRIPT.md)
+**Roadmap (planner):** [ROADMAP.md](ROADMAP.md) · **Opdrachten:** [assignments/](assignments/README.md) · **Test:** [docs/HARDWARE-TEST-SCRIPT.md](../docs/HARDWARE-TEST-SCRIPT.md)
 
 ## Lead / product
 
-- **Ronde 2 (2026-04-01):** alle vier agents gerapporteerd — zie onder. Pytest BLE-protocol: **15/15** (ook in ronde 2 bevestigd).
-- **Nu:** geen nieuwe agent-ronde tot **jij** de hardwaretest hebt gedaan (of expliciet aangeeft dat we zonder paneel verder gaan met iets anders).
+- **Nu:** **Fase A** — hardwaretest-script formeel afronden en onderstaand blok invullen (ook als alles al werkt).
+- **Daarna:** **Fase B** (TestFlight/QA) volgens [ROADMAP.md](ROADMAP.md); agents volgen `agent-*.md`.
 
-## Samenvatting ronde 2
+## Samenvatting ronde 2 (archief)
 
 | Agent | Levering |
 |--------|-----------|
@@ -20,7 +20,7 @@
 
 ## Agent 1 — iOS
 
-- Zie [assignments/agent-1-ios.md](assignments/agent-1-ios.md) (rapport + archief).
+- Zie [assignments/agent-1-ios.md](assignments/agent-1-ios.md).
 
 ## Agent 2 — BLE-protocol
 
@@ -36,22 +36,20 @@
 
 ---
 
-## Blockers / beslissing lead
-
-- **Geen** code-blokkers uit agents.
-- **GIF-send op iOS** nog bewust buiten scope (kan na eerste hardware-feedback).
-
-### Na jouw hardwaretest (vul in)
+## Na jouw hardwaretest (vul in)
 
 - Datum test:
 - Paneel + iPhone: werkt / werkt niet (kort):
 - Python parity (`send_to_panel`) getest: ja / nee / n.v.t.
 - Opmerkingen voor lead:
 
+*Notitie 2026-04-01: BLE + dot-matrix tekst zijn in de praktijk positief bevonden; formele doorloop van [HARDWARE-TEST-SCRIPT.md](../docs/HARDWARE-TEST-SCRIPT.md) blijft aanbevolen voordat Fase B als “af” geldt.*
+
 ---
 
-## Volgende stappen
+## Volgende stappen (planner)
 
-1. **Ferry:** loop [`docs/HARDWARE-TEST-SCRIPT.md`](../docs/HARDWARE-TEST-SCRIPT.md) (15–20 min).
-2. Vul hierboven **Na jouw hardwaretest** in, of stuur de lead een chat met dezelfde info.
-3. Daarna: lead zet **ronde 3** (fixes / GIF / TestFlight) in `management/assignments/agent-*.md` — agents pauzeren tot dat gebeurt.
+1. **Fase A:** [HARDWARE-TEST-SCRIPT.md](../docs/HARDWARE-TEST-SCRIPT.md) + blok hierboven invullen.
+2. **Fase B:** TestFlight + QA — zie [ROADMAP.md](ROADMAP.md) Fase B.
+3. **Fase C:** GIF op iOS — zie [ROADMAP.md](ROADMAP.md) Fase C.
+4. **Fase D:** helderheid/UX — zie [ROADMAP.md](ROADMAP.md) Fase D.

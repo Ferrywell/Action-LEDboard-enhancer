@@ -6,7 +6,11 @@
 
 ## Huidige opdracht (lead) — ronde 3
 
-**Pauze — wacht op hardwaretest Ferry.** Geen nieuwe QA-opdracht tot de lead dit blok vervangt (bijv. na ingevulde testresultaten in [`management/STATUS.md`](../../STATUS.md)).
+**Zie [`management/ROADMAP.md`](../../ROADMAP.md) — Fase A + B.**
+
+1. **Fase A:** Controleer dat [`docs/HARDWARE-TEST-SCRIPT.md`](../../docs/HARDWARE-TEST-SCRIPT.md) nog klopt met de huidige app (o.a. scan-naam `LED_BLE_*` / Pixel board — verwijs naar IOS-APP als nodig).
+2. **Fase B:** Doorloop rookscenario’s in [`docs/QA-RELEASE.md`](../../docs/QA-RELEASE.md) die voor TestFlight relevant zijn; werk release-checklist bij waar gaten zijn.
+3. Vraag Ferry om het testblok in [`management/STATUS.md`](../../STATUS.md) in te vullen na doorloop script.
 
 ---
 

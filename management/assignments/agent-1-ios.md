@@ -6,7 +6,13 @@
 
 ## Huidige opdracht (lead) — ronde 3
 
-**Pauze — wacht op hardwaretest Ferry.** Geen nieuwe iOS-opdracht tot de lead de opdracht hier vervangt na feedback uit [`docs/HARDWARE-TEST-SCRIPT.md`](../../docs/HARDWARE-TEST-SCRIPT.md) en/of [`management/STATUS.md`](../../STATUS.md).
+**Zie [`management/ROADMAP.md`](../../ROADMAP.md) — Fase B (TestFlight) voor jouw rol.**
+
+1. Lees [`docs/reference/IOS-APP.md`](../../docs/reference/IOS-APP.md) sectie **Nog te doen voor TestFlight** en vergelijk met de huidige repo (`Info.plist`, capabilities, icon).
+2. Vul ontbrekende punten aan in code of documentatie (geen willekeurige wijzigingen aan `BKLightProtocol`-bytes).
+3. Noteer in rapport wat nog handmatig in Xcode/App Store Connect moet (Archive, testers).
+
+*Fase A (hardwaretest) mag Ferry parallel afronden; blokkeer geen documentatieverbeteringen.*
 
 ---
 

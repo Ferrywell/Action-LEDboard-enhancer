@@ -6,7 +6,13 @@
 
 ## Huidige opdracht (lead) — ronde 3
 
-**Pauze — wacht op hardwaretest Ferry.** Geen nieuwe opdracht tot de lead dit blok vervangt (bijv. na feedback over leesbaarheid op echt paneel).
+**Zie [`management/ROADMAP.md`](../../ROADMAP.md) — Fase D.**
+
+1. Voeg **paneel-helderheid** toe in de SwiftUI-UI: gebruiker kan `BKLightBleClient.setBrightness` aanroepen (0–100), met duidelijke labels — slider of discrete stappen.
+2. Houd rekening met `isPanelReady` / fouttoon als niet verbonden.
+3. Optioneel: korte hint in copy dat dit het **hardware**-helderheid betreft (niet alleen PNG).
+
+*Mag parallel aan Fase B lopen (kleine, geïsoleerde UI-wijziging).*
 
 ---
 
